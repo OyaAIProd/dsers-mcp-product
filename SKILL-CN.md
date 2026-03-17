@@ -1,0 +1,126 @@
+# DSers MCP Product — 技能说明（中文）
+
+> 本文件是 [SKILL.md](SKILL.md) 的中文说明，供人阅读。SKILL.md 本身是给 AI agent 的指令文件。
+
+## 这个 Skill 做什么
+
+让 AI agent 通过 DSers 平台完成商品导入全流程：从速卖通 / Alibaba / 1688 链接到 Shopify 店铺上架。
+
+## 工作流程
+
+1. `dsers.store.discover` — 查询可用店铺、配送方案、支持的规则
+2. `dsers.rules.validate` — （可选）先校验规则是否合法
+3. `dsers.product.import` — 导入商品 URL，应用规则，获得预览和 job_id
+4. `dsers.product.preview` — （可选）重新加载已保存的预览
+5. `dsers.product.visibility` — （可选）切换草稿 / 上架模式
+6. `dsers.store.push` — 推送到店铺
+7. `dsers.job.status` — 验证推送结果
+
+第 1 步是必须的，它返回店铺列表、配送方案和规则约束。
+
+## 关键决策
+
+### 单条 vs 批量
+
+- 用户给一个链接 → 用 `source_url`
+- 用户给多个链接 → 用 `source_urls_json`（JSON 数组字符串），每个 URL 独立处理，失败不影响其他
+- 混合来源（速卖通 + 1688 + Alibaba）可以在同一次调用中处理
+
+### 推送模式
+
+- **单条推送**：`job_id` + `target_store`
+- **批量推送**：`job_ids_json`（JSON 数组字符串）+ `target_store`
+- **多店铺推送**：`job_id` + `target_stores_json`（JSON 数组字符串）
+- **批量 + 多店铺**：`job_ids_json` + `target_stores_json` → N 个商品 x M 个店铺
+
+`job_ids_json` 优先于 `job_id`。
+
+### Shopify 配送方案
+
+系统自动发现 Shopify 店铺的配送方案，不需要手动填写 GID。
+
+- 默认行为：选择 DSers 中标记为默认的配送方案
+- 指定方案：在 push_options 中设置 `shipping_profile_name`（例如 `"DSers Shipping Profile"`）
+- `dsers.store.discover` 返回每个 Shopify 店铺的 `shipping_profiles`
+
+### 规则
+
+规则在 `dsers.product.import` 时应用并冻结到任务中。推送时不会再改变。
+
+- **pricing**：`mode`（provider_default / multiplier / fixed_markup）、`multiplier`、`fixed_markup`、`round_digits`
+- **content**：`title_prefix`、`title_suffix`、`title_override`、`description_override_html`、`description_append_html`、`tags_add`
+- **images**：`keep_first_n`、`drop_indexes`
+
+自然语言映射：
+- "价格乘以 3" → `{"pricing": {"mode": "multiplier", "multiplier": 3}}`
+- "加 5 美元" → `{"pricing": {"mode": "fixed_markup", "fixed_markup": 5}}`
+- "标题前加 HOT" → `{"content": {"title_prefix": "HOT - "}}`
+- "只保留前 5 张图" → `{"images": {"keep_first_n": 5}}`
+
+用 `dsers.rules.validate` 可以在导入前检查规则。
+
+### 推送选项
+
+用户意图到 `push_options`（作为 `push_options_json` JSON 字符串传递）的映射：
+
+| 用户说的 | 键名 | 值 |
+|---------|------|-----|
+| "上架" / "发布" | `publish_to_online_store` | `true` |
+| "草稿" | `publish_to_online_store` | `false` |
+| "推送所有图片" | `image_strategy` | `"all_available"` |
+| "用店铺定价规则" | `pricing_rule_behavior` | `"apply_store_pricing_rule"` |
+| "自动同步库存" | `auto_inventory_update` | `true` |
+| "自动同步价格" | `auto_price_update` | `true` |
+| "指定配送方案" | `shipping_profile_name` | `"方案名称"` |
+
+## 返回字段
+
+### dsers.product.import / dsers.product.preview
+
+- `job_id`：导入任务的唯一标识 — 后续操作都需要它
+- `status`：`preview_ready`
+- `title_before` / `title_after`：规则应用前后的标题
+- `price_range_before` / `price_range_after`：`{min, max}` 价格区间
+- `images_before` / `images_after`：图片数量
+- `variant_count`：变体总数
+- `variant_preview`：前 5 个变体的 `{title, supplier_price, offer_price, sku}`
+- `warnings`：提示信息数组 — 一定要展示给用户
+
+### dsers.store.push
+
+- `job_id`、`status`：推送后的状态
+- `visibility_applied`：实际可见性（backend_only 或 sell_immediately）
+- `push_options_applied`：最终使用的推送选项
+- `warnings`：提示信息 — 一定要展示给用户
+
+### dsers.job.status
+
+- `status`：`preview_ready` → `push_requested` → `completed` 或 `failed`
+- `has_push_result`：布尔值 — 推送执行后为 true
+
+## 错误处理
+
+- **导入失败**：检查 URL 格式。速卖通捆绑商品链接不支持。1688/Alibaba 需要 DSers 账户启用了对应来源。
+- **"shipping profile not found"**：一般不会出现（自动发现）。如果出现，调用 `dsers.store.discover` 查看可用方案，然后重试时指定 `shipping_profile_name`。
+- **推送返回 `failed`**：检查 `warnings` 数组。常见原因：导入列表中的商品在准备和推送之间被删除。
+- **未知 target_store**：错误消息会列出可用店铺。用 `dsers.store.discover` 返回的 store_ref 或 display_name。
+- 每个响应的 `warnings` 一定要展示给用户。
+- 任务必须是 `preview_ready` 状态才能推送。
+- 复杂 JSON 参数（`rules_json`、`push_options_json`、`source_urls_json`、`job_ids_json`、`target_stores_json`）必须是合法的 JSON 字符串。
+
+## 典型流程
+
+**快速导入推送：**
+```
+dsers.store.discover → dsers.product.import(source_url, rules_json) → dsers.store.push(job_id, target_store)
+```
+
+**批量混合来源：**
+```
+dsers.store.discover → dsers.product.import(source_urls_json: '["ae_url", "1688_url"]') → dsers.store.push(job_ids_json: '["job1", "job2"]', target_store)
+```
+
+**先预览再推送：**
+```
+dsers.store.discover → dsers.product.import(...) → 展示草稿给用户 → 用户确认 → dsers.store.push(...)
+```

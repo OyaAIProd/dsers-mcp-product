@@ -1,0 +1,59 @@
+{
+  "type": "object",
+  "required": ["dsers_email", "dsers_password"],
+  "properties": {
+    "dsers_email": {
+      "type": "string",
+      "title": "DSers Email",
+      "description": "DSers account email address used for authentication",
+      "x-order": 0,
+      "x-from": { "header": "x-dsers-email" }
+    },
+    "dsers_password": {
+      "type": "string",
+      "title": "DSers Password",
+      "description": "DSers account password",
+      "x-order": 1,
+      "x-from": { "header": "x-dsers-password" }
+    },
+    "dsers_env": {
+      "type": "string",
+      "title": "Environment",
+      "description": "API environment (production or test)",
+      "default": "production",
+      "x-order": 2,
+      "x-from": { "header": "x-dsers-env" }
+    },
+    "default_country": {
+      "type": "string",
+      "title": "Default Country",
+      "description": "Default target country code for shipping and pricing (e.g. US, GB, DE). Applied when country is not specified per-import.",
+      "default": "US",
+      "x-order": 3,
+      "x-from": { "header": "x-dsers-default-country" }
+    },
+    "default_store": {
+      "type": "string",
+      "title": "Default Store",
+      "description": "Default target store name. Skips store selection when pushing to one store. Use the display_name from dsers.store.discover.",
+      "x-order": 4,
+      "x-from": { "header": "x-dsers-default-store" }
+    },
+    "default_visibility": {
+      "type": "string",
+      "title": "Default Visibility",
+      "description": "Default product visibility: backend_only (draft) or sell_immediately (published)",
+      "default": "backend_only",
+      "enum": ["backend_only", "sell_immediately"],
+      "x-order": 5,
+      "x-from": { "header": "x-dsers-default-visibility" }
+    },
+    "price_multiplier": {
+      "type": "number",
+      "title": "Default Price Multiplier",
+      "description": "Default pricing multiplier for all imports when no per-import pricing rule is set (e.g. 2.0 for 2x markup)",
+      "x-order": 6,
+      "x-from": { "header": "x-dsers-price-multiplier" }
+    }
+  }
+}

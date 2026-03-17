@@ -1,0 +1,57 @@
+{
+  "name": "@lofder/dsers-mcp-product",
+  "version": "1.0.1",
+  "type": "module",
+  "mcpName": "io.github.lofder/dsers-mcp-product",
+  "description": "MCP server to automate DSers product import from AliExpress/Alibaba to Shopify",
+  "main": "dist/index.js",
+  "bin": {
+    "dsers-mcp-product": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lofder/dsers-mcp-product.git"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "dsers",
+    "shopify",
+    "aliexpress",
+    "dropshipping",
+    "product-import",
+    "ai-agent",
+    "bulk-import",
+    "wix",
+    "woocommerce"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "build:vercel": "next build",
+    "dev": "npx @smithery/cli dev ./src/index.ts",
+    "dev:vercel": "next dev",
+    "playground": "npx @smithery/cli playground ./src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@smithery/sdk": "^4.3.0",
+    "mcp-handler": "^1.0.7",
+    "next": "^16.1.7",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@smithery/cli": "^4.7.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.14",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

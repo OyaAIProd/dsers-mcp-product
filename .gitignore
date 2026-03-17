@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.state/
+.session.json
+*.session.json
+.env
+.env.local
+.DS_Store
+.smithery/
+smithery.yaml
+.next/
+next-env.d.ts
+.vercel
+test/
+.mcpregistry_github_token
+.mcpregistry_registry_token
