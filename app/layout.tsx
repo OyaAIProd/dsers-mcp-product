@@ -1,5 +1,6 @@
 export const metadata = {
   title: "DSers MCP Product",
+  icons: { icon: "/favicon.svg" },
 };
 
 export default function RootLayout({
