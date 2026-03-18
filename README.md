@@ -3,6 +3,7 @@
 [![Smithery](https://smithery.ai/badge/@dsersx/product-mcp)](https://smithery.ai/server/@dsersx/product-mcp)
 [![npm](https://img.shields.io/npm/v/@lofder/dsers-mcp-product)](https://www.npmjs.com/package/@lofder/dsers-mcp-product)
 [![MCP Registry](https://img.shields.io/badge/MCP_Registry-listed-blue)](https://registry.modelcontextprotocol.io/servers/io.github.lofder/dsers-mcp-product)
+[![Glama](https://glama.ai/mcp/servers/lofder/dsers-mcp-product/badges/score.svg)](https://glama.ai/mcp/servers/lofder/dsers-mcp-product)
 
 > An open-source MCP server to automate DSers product import, bulk edit variants, and push to Shopify or Wix using AI.
 
