@@ -5,6 +5,7 @@ import { buildProvider } from "../../../src/provider.js";
 import { ImportFlowService } from "../../../src/service.js";
 import { MemoryJobStore } from "../../../src/job-store-memory.js";
 import { registerTools } from "../../../src/tools.js";
+import { decryptAccessToken } from "../../../src/oauth/crypto.js";
 
 interface RequestContext {
   email: string;
@@ -33,11 +34,24 @@ const baseHandler = createMcpHandler(
 );
 
 async function handler(request: Request): Promise<Response> {
-  const ctx: RequestContext = {
-    email: request.headers.get("x-dsers-email") || "",
-    password: request.headers.get("x-dsers-password") || "",
-    env: request.headers.get("x-dsers-env") || "production",
-  };
+  let ctx: RequestContext | null = null;
+
+  const authHeader = request.headers.get("Authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const decoded = decryptAccessToken(authHeader.slice(7));
+    if (decoded) {
+      ctx = { email: decoded.email, password: decoded.password, env: decoded.env };
+    }
+  }
+
+  if (!ctx) {
+    ctx = {
+      email: request.headers.get("x-dsers-email") || "",
+      password: request.headers.get("x-dsers-password") || "",
+      env: request.headers.get("x-dsers-env") || "production",
+    };
+  }
+
   return requestCtx.run(ctx, () => baseHandler(request));
 }
 
