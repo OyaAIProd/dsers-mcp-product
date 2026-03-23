@@ -46,9 +46,15 @@ const DSERS_REASON_MAP: Record<string, AgentError> = {
     action: "Try a different product, or ask the user to check if their DSers plan supports Alibaba imports.",
   },
   PRODUCT_STATUS_NOT_ONSELLING: {
-    summary: "Product not currently on sale",
-    cause: "The supplier product is recognized but marked as off-shelf, discontinued, or not importable.",
-    action: "Inform the user that this product is currently unavailable. Try a different product URL.",
+    summary: "Product not importable — possible AliExpress auth issue",
+    cause:
+      "DSers reports the product is not on-selling. Most common root cause: the AliExpress authorization " +
+      "has expired, so DSers cannot verify product availability. Less commonly, the product is genuinely " +
+      "off-shelf or delisted.",
+    action:
+      "First check AliExpress authorization: call dsers.store.discover and inspect account_info.aliexpress_auth. " +
+      "If expired, the user must re-authorize at DSers > Settings > Supplier > AliExpress > Reauthorize. " +
+      "If auth is valid, the product itself may be unavailable — try a different product URL.",
   },
   PERMISSION_DENIED: {
     summary: "Permission denied",
@@ -193,16 +199,30 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
     },
   ],
   [
-    /not currently importable|not importable under/i,
+    /All AliExpress authorizations expired/i,
+    {
+      summary: "AliExpress authorization expired — cannot import new products",
+      cause:
+        "All AliExpress supplier accounts linked to this DSers account have expired. " +
+        "DSers cannot fetch product data from AliExpress without a valid authorization.",
+      action:
+        "The DSers account owner must re-authorize their AliExpress account: " +
+        "Go to DSers > Settings > Supplier > AliExpress > Reauthorize. " +
+        "Once done, retry the import.",
+    },
+  ],
+  [
+    /not currently importable|not importable under|PRODUCT_STATUS_NOT_ONSELLING/i,
     {
       summary: "Product not importable via DSers",
       cause:
-        "The supplier product is recognized but cannot be imported. Possible reasons: " +
-        "the product is off-shelf, the DSers AliExpress authorization expired, " +
-        "or the product is region-restricted.",
+        "The supplier product is recognized but cannot be imported. Most likely causes: " +
+        "(1) AliExpress authorization expired, (2) the product is off-shelf or delisted, " +
+        "or (3) the product is region-restricted.",
       action:
-        "Try a different product. If multiple products fail, ask the user to check their " +
-        "DSers account's AliExpress authorization under Settings > Linked Platforms.",
+        "First check AliExpress authorization via dsers.store.discover (look at account_info.aliexpress_auth). " +
+        "If expired, re-authorize at DSers > Settings > Supplier > AliExpress > Reauthorize. " +
+        "If auth is valid, try a different product URL.",
     },
   ],
 ];

@@ -115,9 +115,17 @@ export function registerTools(
       description:
         "Import product(s) from supplier URL(s) into the DSers import list and return a preview bundle with title, prices, images, and variants. " +
         "Single mode: provide source_url. Batch mode: provide source_urls_json with an array of URLs or objects. " +
+        "Re-apply mode: provide job_id + rules_json to update rules on an existing import without re-importing from the supplier. " +
         "Each successful import returns a job_id needed for dsers.product.preview, dsers.product.visibility, and dsers.store.push. " +
-        "Returns: job_id, status, title_before/after, price_range_before/after, images_before/after, variant_count, variant_preview (first 5), warnings.",
+        "Returns: job_id, status, title_before/after, description_html_snippet, price_range_before/after, images_before/after, image_urls, variant_count, variant_preview (all), warnings.",
       inputSchema: {
+        job_id: z
+          .string()
+          .optional()
+          .describe(
+            "Re-apply mode: provide a job_id from a previous import together with rules_json to update rules " +
+              "without re-importing from the supplier. The original draft is preserved and new rules are applied on top.",
+          ),
         source_url: z
           .string()
           .optional()
@@ -179,6 +187,22 @@ export function registerTools(
     },
     async (args) => {
       try {
+        if (args.job_id && !args.source_url && !args.source_urls_json) {
+          const rulesPayload: Record<string, any> = { job_id: args.job_id };
+          if (args.rules_json) {
+            const parsed = safeJsonParse(
+              args.rules_json, "rules_json",
+              'Expected a JSON object with optional keys: pricing, content, images. ' +
+                'Example: {"pricing": {"mode": "multiplier", "multiplier": 2.0}}',
+            );
+            if (parsed.error) return fail(new Error(parsed.error));
+            rulesPayload.rules = parsed.value;
+          }
+          if (args.target_store) rulesPayload.target_store = args.target_store;
+          if (args.visibility_mode) rulesPayload.visibility_mode = args.visibility_mode;
+          return ok(await svc().reapplyRules(rulesPayload));
+        }
+
         const payload: Record<string, any> = {};
 
         if (args.source_urls_json) {
@@ -499,6 +523,51 @@ export function registerTools(
               "Steps: 1) dsers.store.discover — list all stores. " +
               "2) dsers.product.import with the URL. " +
               "3) dsers.store.push with target_stores_json containing all store names from step 1.",
+          },
+        },
+      ],
+    }),
+  );
+
+  server.prompt(
+    "dsers.workflow.seo-optimize",
+    "Import a product, use your LLM capabilities to rewrite the title and description for SEO, then push the optimized listing to the store.",
+    {
+      product_url: z
+        .string()
+        .describe("Supplier product URL (AliExpress, Alibaba, or 1688)."),
+      store_name: z
+        .string()
+        .optional()
+        .describe("Target store display name. Omit if only one store is linked."),
+      target_audience: z
+        .string()
+        .optional()
+        .describe("Target audience or niche for SEO optimization. E.g. 'US women aged 25-40 interested in home decor'."),
+    },
+    async ({ product_url, store_name, target_audience }) => ({
+      messages: [
+        {
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text:
+              `Import this product and optimize it for SEO before pushing to ${store_name || "my store"}:\n${product_url}\n` +
+              (target_audience ? `Target audience: ${target_audience}\n` : "") +
+              "\nWorkflow:\n" +
+              "1) dsers.store.discover — find the target store.\n" +
+              "2) dsers.product.import with the URL (no content rules yet) — get the raw preview.\n" +
+              "3) Review the title_after and description_html_snippet from the preview.\n" +
+              "4) [YOU DO THIS] Rewrite the title: remove supplier noise like [HOT], brand spam, ALL-CAPS. " +
+              "Make it clean, keyword-rich, and appealing to shoppers" +
+              (target_audience ? ` (audience: ${target_audience})` : "") + ".\n" +
+              "5) [YOU DO THIS] Rewrite the description: turn the raw supplier HTML into a professional, " +
+              "conversion-focused product description with benefits, features, and a clear CTA. " +
+              "Keep it concise (150-300 words).\n" +
+              "6) dsers.product.import with the SAME job_id + rules_json containing title_override and description_override_html " +
+              "with your rewritten content. This re-applies rules without re-importing.\n" +
+              "7) Show me the updated preview for approval.\n" +
+              "8) After I confirm, dsers.store.push to the target store.",
           },
         },
       ],

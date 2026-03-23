@@ -286,7 +286,10 @@ export async function importByProductId(
     language?: string[];
   },
 ): Promise<Record<string, unknown>> {
-  return client.post("/dsers-product-bff/import-list/product-id", body);
+  return client.post("/dsers-product-bff/import-list/product-id", {
+    ...body,
+    supplyAppId: coerceIntId(body.supplyAppId) as string | number,
+  });
 }
 
 export async function importByProductIdBatch(
@@ -298,7 +301,10 @@ export async function importByProductIdBatch(
     isBackError?: number;
   },
 ): Promise<Record<string, unknown>> {
-  return client.post("/dsers-product-bff/import-list/product-id-batch", body);
+  return client.post("/dsers-product-bff/import-list/product-id-batch", {
+    ...body,
+    supplyAppId: coerceIntId(body.supplyAppId) as string | number,
+  });
 }
 
 export async function updateImportListItem(
@@ -412,7 +418,7 @@ export async function parseProductUrl(
 ): Promise<Record<string, unknown>> {
   return client.post("/dsers-product-bff/supplier/parse-product-url", {
     url,
-    appId,
+    appId: coerceIntId(appId),
   });
 }
 

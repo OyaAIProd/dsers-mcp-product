@@ -32,7 +32,7 @@ const DEFAULT_PUSH_CHANNELS = [
   "amazon",
 ];
 
-const ALIEXPRESS_ID_PATTERN = /\/item\/(\d+)\.html/i;
+const ALIEXPRESS_ID_PATTERN = /\/(?:item|i)\/(\d+)\.html/i;
 const ALIBABA_ID_PATTERN = /\/product-detail\/[^_]+_(\d+)\.html/i;
 const ALI1688_ID_PATTERN = /1688\.com\/(?:offer|product-detail)\/(\d+)\.html/i;
 
@@ -91,10 +91,43 @@ export class PrivateDsersProvider implements ImportProvider {
       notes.push(`Target store hint received: ${targetStore}`);
     }
 
+    const account_info: Record<string, any> = {};
+    try {
+      const ilRes = await product.getImportList(this.client, { page: 1, size: 1 }) as Record<string, any>;
+      const ilData = ilRes?.data;
+      account_info.import_list_count = Array.isArray(ilData) ? ilData.length : (ilData?.total ?? null);
+    } catch { /* non-critical */ }
+    try {
+      const planRes = await settings.getCurrentPlan(this.client) as Record<string, any>;
+      const pd = planRes?.data ?? {};
+      account_info.plan = pd.type ?? pd.planType ?? pd.name ?? null;
+      account_info.plan_status = pd.status ?? null;
+      account_info.plan_deadline = pd.deadline ?? null;
+    } catch { /* non-critical */ }
+    try {
+      const limRes = await settings.getPlanLimits(this.client) as Record<string, any>;
+      const ld = limRes?.data ?? {};
+      account_info.limits = {
+        store_limit: ld.storeLimit,
+        product_limit: ld.productLimit,
+        import_limit: ld.importLimit,
+        import_day_limit: ld.importDayLimit,
+      };
+    } catch { /* non-critical */ }
+    try {
+      const authCheck = await this.checkAliExpressAuth();
+      account_info.aliexpress_auth = {
+        valid: authCheck.valid,
+        all_expired: authCheck.all_expired,
+        detail: authCheck.details,
+      };
+    } catch { /* non-critical */ }
+
     return {
       provider_label: "Private DSers Adapter",
       source_support: ["aliexpress", "alibaba", "1688"],
       stores,
+      account_info,
       rule_families: {
         pricing: {
           supported: true,
@@ -165,6 +198,9 @@ export class PrivateDsersProvider implements ImportProvider {
       );
       supplyProductId = canonicalId || afTraceId;
     }
+    if (canonicalId && canonicalId !== supplyProductId) {
+      supplyProductId = canonicalId;
+    }
     if (!supplyProductId) {
       throw new Error(
         `Could not extract a supplier product ID from the URL: ${sourceUrl}. Ensure it contains a numeric product ID.`,
@@ -176,6 +212,7 @@ export class PrivateDsersProvider implements ImportProvider {
         supplyProductId: supplyProductId!,
         supplyAppId: appId,
         country,
+        language: ["EN"],
       }),
     );
     if (this.hasReason(importPayload, "ALIBABA_NOT_AVAILABLE")) {
@@ -184,8 +221,23 @@ export class PrivateDsersProvider implements ImportProvider {
       );
     }
     if (this.hasReason(importPayload, "PRODUCT_STATUS_NOT_ONSELLING")) {
+      if (sourceKind === "aliexpress") {
+        const authCheck = await this.checkAliExpressAuth();
+        if (!authCheck.valid) {
+          throw new Error(
+            "AliExpress import failed (PRODUCT_STATUS_NOT_ONSELLING). " +
+            "Root cause: " + authCheck.details + " " +
+            "Action: The DSers account owner must re-authorize their AliExpress account at " +
+            "DSers > Settings > Supplier > AliExpress > Reauthorize, then retry the import.",
+          );
+        }
+      }
       throw new Error(
-        "The selected supplier product is recognized, but DSers reports it is not currently importable under the chosen source app.",
+        "The supplier product cannot be imported — DSers reports PRODUCT_STATUS_NOT_ONSELLING. " +
+        "Possible causes: (1) the product has been delisted by the supplier, " +
+        "(2) the product is unavailable in the selected country/region, " +
+        "or (3) the AliExpress authorization may need refreshing. " +
+        "Try verifying the product URL in a browser and re-authorizing the AliExpress account in DSers settings.",
       );
     }
     const alreadyExists = this.hasReason(
@@ -200,9 +252,17 @@ export class PrivateDsersProvider implements ImportProvider {
     }
 
     let importItemId = this.extractImportItemId(importPayload);
+
+    let localProductId = this.extractLocalProductId(importPayload);
+
     if (!importItemId) {
+      if (!localProductId) {
+        localProductId = await this.resolveLocalProductId(
+          supplyProductId!, appId, country,
+        );
+      }
       const searchIds = new Set(
-        [supplyProductId, canonicalId, afTraceId].filter(Boolean),
+        [supplyProductId, canonicalId, afTraceId, localProductId].filter(Boolean),
       );
       importItemId = await this.recoverImportItemId(searchIds);
     }
@@ -210,6 +270,9 @@ export class PrivateDsersProvider implements ImportProvider {
       throw new Error(
         "Could not locate the imported product draft in the import list. The import may have failed silently.",
       );
+    }
+    if (localProductId && localProductId !== supplyProductId) {
+      supplyProductId = localProductId;
     }
 
     const itemPayload = await safeCall(() =>
@@ -1000,6 +1063,47 @@ export class PrivateDsersProvider implements ImportProvider {
     ).trim();
   }
 
+  /**
+   * Extract the DSers-internal (local) supplyProductId from a successful
+   * import response.  AliExpress .us URLs use global IDs (3256…) that DSers
+   * converts to standard IDs (1005…) at import time.
+   */
+  private extractLocalProductId(payload: Record<string, any>): string {
+    const data = payload?.data;
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      const localId = String((data as Record<string, any>).supplyProductId ?? "").trim();
+      if (localId && /^\d{5,}$/.test(localId)) return localId;
+    }
+    return "";
+  }
+
+  /**
+   * Look up the product pool to discover the DSers-internal (local) product ID
+   * for a given global product ID.  `.us` AliExpress URLs yield global IDs
+   * (3256…) which DSers maps to standard IDs (1005…) internally.
+   */
+  private async resolveLocalProductId(
+    globalId: string, appId: string, country: string,
+  ): Promise<string> {
+    try {
+      const pool = await safeCall(() =>
+        product.getPoolProductDetail(this.client, {
+          productId: globalId,
+          appId: Number(appId) || 0,
+          shipTo: country,
+        }),
+      );
+      const data = pool?.data;
+      if (data && typeof data === "object") {
+        const poolPid = String((data as Record<string, any>).supplyProductId ?? "").trim();
+        if (poolPid && /^\d{5,}$/.test(poolPid) && poolPid !== globalId) return poolPid;
+        const poolPid2 = String((data as Record<string, any>).productId ?? "").trim();
+        if (poolPid2 && /^\d{5,}$/.test(poolPid2) && poolPid2 !== globalId) return poolPid2;
+      }
+    } catch { /* best-effort */ }
+    return "";
+  }
+
   // ── URL & ID parsing ──
 
   private extractAfTraceId(sourceUrl: string): string {
@@ -1010,6 +1114,71 @@ export class PrivateDsersProvider implements ImportProvider {
       return m ? m[1] : "";
     } catch {
       return "";
+    }
+  }
+
+  /**
+   * Returns {valid, best_account, all_expired} for AliExpress suppliers.
+   * Uses the /account-user-bff/v1/suppliers/list endpoint.
+   */
+  private async checkAliExpressAuth(): Promise<{
+    valid: boolean;
+    best_account: Record<string, any> | null;
+    all_expired: boolean;
+    details: string;
+  }> {
+    try {
+      const payload = await account.listSuppliers(this.client) as Record<string, any>;
+      const list: Record<string, any>[] =
+        payload?.data?.list ?? payload?.data ?? [];
+      const aeAppId = this.aliexpressAppId;
+      const aeAccounts = list.filter(
+        (s) => String(s.appid) === String(aeAppId),
+      );
+      if (aeAccounts.length === 0) {
+        return {
+          valid: false,
+          best_account: null,
+          all_expired: true,
+          details:
+            "No AliExpress supplier accounts linked. Go to DSers > Settings > Supplier to authorize your AliExpress account.",
+        };
+      }
+      const now = Math.floor(Date.now() / 1000);
+      let bestAccount: Record<string, any> | null = null;
+      let bestExpire = 0;
+      for (const a of aeAccounts) {
+        const expire = parseInt(String(a.expireTime || "0"), 10) || 0;
+        if (expire > bestExpire) {
+          bestExpire = expire;
+          bestAccount = a;
+        }
+      }
+      if (bestExpire > now) {
+        const daysLeft = Math.ceil((bestExpire - now) / 86400);
+        return {
+          valid: true,
+          best_account: bestAccount,
+          all_expired: false,
+          details: `AliExpress authorization valid (${daysLeft} days remaining).`,
+        };
+      }
+      const expiredAgo = Math.ceil((now - bestExpire) / 86400);
+      return {
+        valid: false,
+        best_account: bestAccount,
+        all_expired: true,
+        details:
+          `All AliExpress authorizations expired (most recent expired ${expiredAgo} day(s) ago). ` +
+          "Re-authorize at DSers > Settings > Supplier > AliExpress > Reauthorize.",
+      };
+    } catch {
+      return {
+        valid: true,
+        best_account: null,
+        all_expired: false,
+        details: "Could not verify AliExpress authorization status.",
+      };
     }
   }
 
