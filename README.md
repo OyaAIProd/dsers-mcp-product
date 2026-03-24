@@ -17,7 +17,21 @@
 
 **DSers MCP Product** is an open-source [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that lets AI Agents automate the entire DSers import workflow — from AliExpress / Alibaba / 1688 / [Accio.com](https://www.accio.com/) product URL to Shopify or Wix store listing. Bulk import, batch edit variants, clean AliExpress titles, apply pricing rules, and push to multiple stores — all with a single sentence to your AI agent.
 
-The server is hosted on [Vercel](https://dsers-mcp-product.vercel.app/api/mcp), published on [Smithery](https://smithery.ai/server/@dsersx/product-mcp), [npm](https://www.npmjs.com/package/@lofder/dsers-mcp-product), and the official [MCP Registry](https://registry.modelcontextprotocol.io/servers/io.github.lofder/dsers-mcp-product).
+The server is hosted on [Vercel](https://dsers-mcp-product.vercel.app/api/mcp) and published across multiple platforms:
+
+### Available On
+
+| Platform | Link |
+|----------|------|
+| npm | [npmjs.com/package/@lofder/dsers-mcp-product](https://www.npmjs.com/package/@lofder/dsers-mcp-product) |
+| MCP Registry (Official) | [registry.modelcontextprotocol.io](https://registry.modelcontextprotocol.io/servers/io.github.lofder/dsers-mcp-product) |
+| Smithery | [smithery.ai/server/@dsersx/product-mcp](https://smithery.ai/server/@dsersx/product-mcp) |
+| Glama.ai | [glama.ai/mcp/servers/lofder/dsers-mcp-product](https://glama.ai/mcp/servers/lofder/dsers-mcp-product) |
+| mcp.so | [mcp.so/server/dsers-mcp-product](https://mcp.so/server/dsers-mcp-product) |
+| mcpservers.org | [mcpservers.org](https://mcpservers.org) |
+| MCP Marketplace | [mcp-marketplace.io](https://mcp-marketplace.io/server/io-github-lofder-dsers-mcp-product) |
+| awesome-mcp-servers | [punkpeye/awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers) |
+| Dev.to | [Article: I Built an MCP Server to Automate Dropshipping](https://dev.to/_95a3e57463e6442feacd0/i-built-an-mcp-server-to-automate-dropshipping-product-imports-3m5b) |
 
 ### Supported product sources
 
@@ -186,7 +200,21 @@ MIT
 
 **DSers MCP Product** 是一个开源的 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) 服务器，让 AI Agent 自动完成 DSers 的整个商品导入流程 —— 从速卖通 / Alibaba / 1688 / [Accio.com](https://www.accio.com/) 商品链接到 Shopify 或 Wix 店铺上架。批量导入、批量编辑变体、清理速卖通标题、应用定价规则、推送到多个店铺 —— 只需一句话给你的 AI agent。
 
-服务已托管在 [Vercel](https://dsers-mcp-product.vercel.app/api/mcp)，并发布到 [Smithery](https://smithery.ai/server/@dsersx/product-mcp)、[npm](https://www.npmjs.com/package/@lofder/dsers-mcp-product) 和官方 [MCP Registry](https://registry.modelcontextprotocol.io/servers/io.github.lofder/dsers-mcp-product)。
+服务已托管在 [Vercel](https://dsers-mcp-product.vercel.app/api/mcp)，并发布到多个平台：
+
+### 发布平台
+
+| 平台 | 链接 |
+|------|------|
+| npm | [npmjs.com/package/@lofder/dsers-mcp-product](https://www.npmjs.com/package/@lofder/dsers-mcp-product) |
+| MCP Registry（官方） | [registry.modelcontextprotocol.io](https://registry.modelcontextprotocol.io/servers/io.github.lofder/dsers-mcp-product) |
+| Smithery | [smithery.ai/server/@dsersx/product-mcp](https://smithery.ai/server/@dsersx/product-mcp) |
+| Glama.ai | [glama.ai/mcp/servers/lofder/dsers-mcp-product](https://glama.ai/mcp/servers/lofder/dsers-mcp-product) |
+| mcp.so | [mcp.so/server/dsers-mcp-product](https://mcp.so/server/dsers-mcp-product) |
+| mcpservers.org | [mcpservers.org](https://mcpservers.org) |
+| MCP Marketplace | [mcp-marketplace.io](https://mcp-marketplace.io/server/io-github-lofder-dsers-mcp-product) |
+| awesome-mcp-servers | [punkpeye/awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers) |
+| Dev.to | [技术文章：I Built an MCP Server to Automate Dropshipping](https://dev.to/_95a3e57463e6442feacd0/i-built-an-mcp-server-to-automate-dropshipping-product-imports-3m5b) |
 
 ### 支持的商品来源
 
