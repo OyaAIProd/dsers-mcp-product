@@ -15,9 +15,28 @@
 
 ## English
 
-**DSers MCP Product** is an open-source [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that lets AI Agents automate the entire DSers import workflow — from AliExpress / Alibaba / 1688 product URL to Shopify or Wix store listing. Bulk import, batch edit variants, clean AliExpress titles, apply pricing rules, and push to multiple stores — all with a single sentence to your AI agent.
+**DSers MCP Product** is an open-source [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that lets AI Agents automate the entire DSers import workflow — from AliExpress / Alibaba / 1688 / [Accio.com](https://www.accio.com/) product URL to Shopify or Wix store listing. Bulk import, batch edit variants, clean AliExpress titles, apply pricing rules, and push to multiple stores — all with a single sentence to your AI agent.
 
 The server is hosted on [Vercel](https://dsers-mcp-product.vercel.app/api/mcp), published on [Smithery](https://smithery.ai/server/@dsersx/product-mcp), [npm](https://www.npmjs.com/package/@lofder/dsers-mcp-product), and the official [MCP Registry](https://registry.modelcontextprotocol.io/servers/io.github.lofder/dsers-mcp-product).
+
+### Supported product sources
+
+Import works from **AliExpress**, **Alibaba.com**, **1688**, and **[Accio.com](https://www.accio.com/)** — Alibaba's AI business agent for sourcing. Users can search and discover products on Accio, then import them into DSers via this MCP tool using the same `dsers.product.import` flow as direct marketplace URLs.
+
+### Accio.com integration
+
+- Browse and search products on [Accio.com](https://www.accio.com/) (Alibaba's AI sourcing platform).
+- Copy the product **staging** or **detail** URL from the browser address bar.
+- Paste that Accio URL into `dsers.product.import` as `source_url`.
+- The tool automatically extracts **productId** and **data source** from the URL parameters.
+- Works for both **AliExpress** and **Alibaba** products found on Accio.
+- **No extra configuration** is required beyond your normal DSers MCP setup.
+
+**Supported Accio URL formats:**
+
+- `accio.com/c/{id}?productId=xxx&ds=aliexpress.com` — staging area
+- `accio.com/d/{id}?dataSource=Alibaba.com` — product detail
+- Any Accio page URL that includes a `productId` query parameter
 
 ### Documentation
 
@@ -91,7 +110,7 @@ dsers-mcp-product/
 │   ├── provider.ts           # DSers API adapter
 │   ├── rules.ts              # Rule validation & application engine
 │   ├── push-options.ts       # Push option normalization
-│   ├── resolver.ts           # URL normalization (AliExpress/Alibaba/1688)
+│   ├── resolver.ts           # URL normalization (AliExpress/Alibaba/1688/Accio)
 │   ├── job-store.ts          # File-based job persistence
 │   └── dsers/                # Low-level DSers API wrappers
 │       ├── config.ts         # Configuration & environment
@@ -113,7 +132,7 @@ dsers-mcp-product/
 |---|------|-------|-------------|
 | 1 | `dsers.store.discover` | DSers Store & Rule Discovery | Discover stores, shipping profiles, supported rules |
 | 2 | `dsers.rules.validate` | Pricing & Content Rule Validator | Dry-run rule validation |
-| 3 | `dsers.product.import` | AliExpress / Alibaba / 1688 Import | Import from URL(s), apply rules, get preview; re-apply mode via job_id |
+| 3 | `dsers.product.import` | AliExpress / Alibaba / 1688 / Accio Import | Import from URL(s), apply rules, get preview; re-apply mode via job_id |
 | 4 | `dsers.product.preview` | Import Draft Preview | Reload a saved preview |
 | 5 | `dsers.product.visibility` | Shopify / Wix Visibility Toggle | Toggle draft / published |
 | 6 | `dsers.store.push` | Push to Shopify / Wix Store | Push single/batch/multi-store |
@@ -165,9 +184,28 @@ MIT
 
 ## 中文
 
-**DSers MCP Product** 是一个开源的 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) 服务器，让 AI Agent 自动完成 DSers 的整个商品导入流程 —— 从速卖通 / Alibaba / 1688 商品链接到 Shopify 或 Wix 店铺上架。批量导入、批量编辑变体、清理速卖通标题、应用定价规则、推送到多个店铺 —— 只需一句话给你的 AI agent。
+**DSers MCP Product** 是一个开源的 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) 服务器，让 AI Agent 自动完成 DSers 的整个商品导入流程 —— 从速卖通 / Alibaba / 1688 / [Accio.com](https://www.accio.com/) 商品链接到 Shopify 或 Wix 店铺上架。批量导入、批量编辑变体、清理速卖通标题、应用定价规则、推送到多个店铺 —— 只需一句话给你的 AI agent。
 
 服务已托管在 [Vercel](https://dsers-mcp-product.vercel.app/api/mcp)，并发布到 [Smithery](https://smithery.ai/server/@dsersx/product-mcp)、[npm](https://www.npmjs.com/package/@lofder/dsers-mcp-product) 和官方 [MCP Registry](https://registry.modelcontextprotocol.io/servers/io.github.lofder/dsers-mcp-product)。
+
+### 支持的商品来源
+
+支持从 **速卖通（AliExpress）**、**Alibaba.com**、**1688** 以及 **[Accio.com](https://www.accio.com/)**（阿里巴巴 AI 智能找商 / 选品平台）导入。用户可在 Accio 上搜索、发现商品，再通过本 MCP 的 `dsers.product.import` 将链接导入 DSers，流程与直接使用各平台商品链接一致。
+
+### Accio.com 集成说明
+
+- 在 [Accio.com](https://www.accio.com/) 上浏览、搜索商品（阿里巴巴 AI 选品平台）。
+- 从浏览器地址栏复制商品**暂存区**或**详情页**的完整 URL。
+- 将该 Accio 链接作为 `source_url` 传给 `dsers.product.import`。
+- 工具会从 URL 参数中自动解析 **productId** 与**数据源（data source）**。
+- 适用于 Accio 上展示的 **速卖通** 与 **Alibaba** 商品。
+- **无需额外配置**，与常规 DSers MCP 使用方式相同。
+
+**支持的 Accio URL 格式示例：**
+
+- `accio.com/c/{id}?productId=xxx&ds=aliexpress.com` — 暂存 / 选品区
+- `accio.com/d/{id}?dataSource=Alibaba.com` — 商品详情
+- 任意带有 `productId` 查询参数的 Accio 页面 URL
 
 ### 文档
 
@@ -237,7 +275,7 @@ npx @smithery/cli dev ./src/index.ts
 |---|------|------|------|
 | 1 | `dsers.store.discover` | 店铺与规则发现 | 查询店铺、配送方案、支持的规则 |
 | 2 | `dsers.rules.validate` | 定价与内容规则校验 | 规则校验试运行 |
-| 3 | `dsers.product.import` | 速卖通/Alibaba/1688 导入 | 从 URL 导入、应用规则、获取预览；支持 re-apply 模式 |
+| 3 | `dsers.product.import` | 速卖通/Alibaba/1688/Accio 导入 | 从 URL 导入、应用规则、获取预览；支持 re-apply 模式 |
 | 4 | `dsers.product.preview` | 导入草稿预览 | 重新加载已保存的预览 |
 | 5 | `dsers.product.visibility` | Shopify/Wix 可见性切换 | 切换草稿 / 上架 |
 | 6 | `dsers.store.push` | 推送到 Shopify/Wix | 单条/批量/多店铺推送 |
