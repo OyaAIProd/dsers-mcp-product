@@ -8,6 +8,9 @@ const RETRYABLE_REASONS = new Set([
   "INVALID_TOKEN",
 ]);
 
+const RATE_LIMIT_WINDOW_MS = 1_000;
+const RATE_LIMIT_MAX_REQUESTS = 5;
+
 export class DSersAPIError extends Error {
   status: number;
   body: string;
@@ -21,10 +24,25 @@ export class DSersAPIError extends Error {
 export class DSersClient {
   private config: DSersConfig;
   private auth: DSersAuth;
+  private requestTimestamps: number[] = [];
 
   constructor(config: DSersConfig) {
     this.config = config;
     this.auth = new DSersAuth(config);
+  }
+
+  private async throttle(): Promise<void> {
+    const now = Date.now();
+    this.requestTimestamps = this.requestTimestamps.filter(
+      (t) => now - t < RATE_LIMIT_WINDOW_MS,
+    );
+    if (this.requestTimestamps.length >= RATE_LIMIT_MAX_REQUESTS) {
+      const oldest = this.requestTimestamps[0];
+      const waitMs = RATE_LIMIT_WINDOW_MS - (now - oldest) + 50;
+      if (waitMs > 0)
+        await new Promise((r) => setTimeout(r, waitMs));
+    }
+    this.requestTimestamps.push(Date.now());
   }
 
   async request(
@@ -36,6 +54,7 @@ export class DSersClient {
     },
     retried = false,
   ): Promise<Record<string, any>> {
+    await this.throttle();
     const [sessionId, state] = await this.auth.getSession();
 
     const url = new URL(`${this.config.baseUrl}${path}`);
@@ -66,8 +85,8 @@ export class DSersClient {
           this.auth.invalidate();
           return this.request(method, path, opts, true);
         }
-      } catch {
-        // not JSON, fall through to error
+      } catch (_jsonErr: unknown) {
+        // Response body is not valid JSON — fall through to throw DSersAPIError
       }
     }
 

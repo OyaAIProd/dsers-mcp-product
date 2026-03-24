@@ -25,7 +25,7 @@ function safeJsonParse(
 ): { value: any; error?: string } {
   try {
     return { value: JSON.parse(raw) };
-  } catch {
+  } catch (_jsonErr: unknown) {
     return { value: null, error: `Invalid JSON in ${paramName}. ${hint}` };
   }
 }

@@ -28,7 +28,7 @@ export function encrypt(payload: TokenPayload): string | null {
     const ct = Buffer.concat([cipher.update(json, "utf8"), cipher.final()]);
     const tag = cipher.getAuthTag();
     return Buffer.concat([iv, tag, ct]).toString("base64url");
-  } catch {
+  } catch (_encryptErr: unknown) {
     return null;
   }
 }
@@ -49,7 +49,7 @@ export function decrypt(token: string): TokenPayload | null {
     if (!payload.email || !payload.password) return null;
     if (payload.exp && Date.now() > payload.exp) return null;
     return payload;
-  } catch {
+  } catch (_decryptErr: unknown) {
     return null;
   }
 }
@@ -76,7 +76,7 @@ export function generateCode(
     const ct = Buffer.concat([cipher.update(json, "utf8"), cipher.final()]);
     const tag = cipher.getAuthTag();
     return Buffer.concat([iv, tag, ct]).toString("base64url");
-  } catch {
+  } catch (_codeErr: unknown) {
     return null;
   }
 }
@@ -99,7 +99,7 @@ export function decryptCode(
     if (!payload.email || !payload.code_challenge) return null;
     if (payload.exp && Date.now() > payload.exp) return null;
     return payload;
-  } catch {
+  } catch (_decodeErr: unknown) {
     return null;
   }
 }

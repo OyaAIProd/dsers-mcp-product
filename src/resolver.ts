@@ -72,20 +72,52 @@ function resolveAccioUrl(
   };
 }
 
+const MAX_URL_LENGTH = 4096;
+const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
+
 export async function resolveSourceUrl(
   url: string,
   sourceHint?: string,
 ): Promise<ResolveResult> {
   const warnings: string[] = [];
+
+  if (!url || typeof url !== "string") {
+    return {
+      resolved_url: "",
+      source_hint: sourceHint ?? "",
+      resolver_mode: "rejected",
+      warnings: ["URL is empty or not a string."],
+    };
+  }
+
+  const trimmed = url.trim();
+  if (trimmed.length > MAX_URL_LENGTH) {
+    return {
+      resolved_url: trimmed.slice(0, 200) + "…",
+      source_hint: sourceHint ?? "",
+      resolver_mode: "rejected",
+      warnings: [`URL exceeds maximum length of ${MAX_URL_LENGTH} characters.`],
+    };
+  }
+
   let parsed: URL;
   try {
-    parsed = new URL(url);
-  } catch {
+    parsed = new URL(trimmed);
+  } catch (_parseErr: unknown) {
     return {
-      resolved_url: url,
+      resolved_url: trimmed,
       source_hint: sourceHint ?? "",
       resolver_mode: "passthrough",
-      warnings: ["Invalid URL"],
+      warnings: ["Invalid URL — must be a fully qualified URL starting with https://"],
+    };
+  }
+
+  if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) {
+    return {
+      resolved_url: trimmed,
+      source_hint: sourceHint ?? "",
+      resolver_mode: "rejected",
+      warnings: [`Unsupported protocol "${parsed.protocol}" — only http and https are accepted.`],
     };
   }
 

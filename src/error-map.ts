@@ -250,7 +250,7 @@ function extractDsersReason(err: any): string | null {
     try {
       const body = JSON.parse(err.body);
       return body.reason ?? null;
-    } catch {
+    } catch (_parseErr: unknown) {
       return null;
     }
   }

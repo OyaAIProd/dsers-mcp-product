@@ -88,7 +88,7 @@ export class DSersAuth {
       const obj: SessionCache = JSON.parse(readFileSync(p, "utf-8"));
       if (Date.now() - obj.ts > SESSION_TTL) return null;
       return [obj.session_id, obj.state ?? "", obj.ts];
-    } catch {
+    } catch (_readErr: unknown) {
       return null;
     }
   }
@@ -103,6 +103,6 @@ export class DSersAuth {
         ts: this.fetchedAt,
       };
       writeFileSync(p, JSON.stringify(payload), "utf-8");
-    } catch { /* graceful fallback to in-memory only */ }
+    } catch (_writeErr: unknown) { /* file write failed — continue with in-memory session only */ }
   }
 }

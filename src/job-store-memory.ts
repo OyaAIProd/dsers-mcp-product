@@ -13,7 +13,7 @@ function decodeState(token: string): Record<string, any> | null {
     const buf = Buffer.from(token, "base64url");
     const json = inflateSync(buf).toString("utf-8");
     return JSON.parse(json) as Record<string, any>;
-  } catch {
+  } catch (_parseErr: unknown) {
     return null;
   }
 }

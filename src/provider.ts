@@ -20,8 +20,10 @@ async function safeCall<T extends Record<string, any>>(
   }
 }
 
-const DEFAULT_ALIEXPRESS_APP_ID = "159831080";
-const DEFAULT_ALIBABA_APP_ID = "1902659021782450176";
+// Public DSers platform identifiers — NOT secrets.
+// Override via env for custom/test accounts.
+const FALLBACK_ALIEXPRESS_APP_ID = "159831080";
+const FALLBACK_ALIBABA_APP_ID = "1902659021782450176";
 
 const DEFAULT_PUSH_CHANNELS = [
   "online_store",
@@ -68,10 +70,10 @@ export class PrivateDsersProvider implements ImportProvider {
     const cfg = config ?? configFromEnv();
     this.client = new DSersClient(cfg);
     this.aliexpressAppId = String(
-      process.env.PRIVATE_DSERS_ALIEXPRESS_APP_ID || DEFAULT_ALIEXPRESS_APP_ID,
+      process.env.PRIVATE_DSERS_ALIEXPRESS_APP_ID || FALLBACK_ALIEXPRESS_APP_ID,
     );
     this.alibabaAppId = String(
-      process.env.PRIVATE_DSERS_ALIBABA_APP_ID || DEFAULT_ALIBABA_APP_ID,
+      process.env.PRIVATE_DSERS_ALIBABA_APP_ID || FALLBACK_ALIBABA_APP_ID,
     );
   }
 
@@ -97,14 +99,14 @@ export class PrivateDsersProvider implements ImportProvider {
       const ilRes = await product.getImportList(this.client, { page: 1, size: 1 }) as Record<string, any>;
       const ilData = ilRes?.data;
       account_info.import_list_count = Array.isArray(ilData) ? ilData.length : (ilData?.total ?? null);
-    } catch { /* non-critical */ }
+    } catch (e: unknown) { account_info._errors ??= []; account_info._errors.push(`import_list: ${e instanceof Error ? e.message : String(e)}`); }
     try {
       const planRes = await settings.getCurrentPlan(this.client) as Record<string, any>;
       const pd = planRes?.data ?? {};
       account_info.plan = pd.type ?? pd.planType ?? pd.name ?? null;
       account_info.plan_status = pd.status ?? null;
       account_info.plan_deadline = pd.deadline ?? null;
-    } catch { /* non-critical */ }
+    } catch (e: unknown) { account_info._errors ??= []; account_info._errors.push(`plan: ${e instanceof Error ? e.message : String(e)}`); }
     try {
       const limRes = await settings.getPlanLimits(this.client) as Record<string, any>;
       const ld = limRes?.data ?? {};
@@ -114,7 +116,7 @@ export class PrivateDsersProvider implements ImportProvider {
         import_limit: ld.importLimit,
         import_day_limit: ld.importDayLimit,
       };
-    } catch { /* non-critical */ }
+    } catch (e: unknown) { account_info._errors ??= []; account_info._errors.push(`limits: ${e instanceof Error ? e.message : String(e)}`); }
     try {
       const authCheck = await this.checkAliExpressAuth();
       account_info.aliexpress_auth = {
@@ -122,7 +124,7 @@ export class PrivateDsersProvider implements ImportProvider {
         all_expired: authCheck.all_expired,
         detail: authCheck.details,
       };
-    } catch { /* non-critical */ }
+    } catch (e: unknown) { account_info._errors ??= []; account_info._errors.push(`ae_auth: ${e instanceof Error ? e.message : String(e)}`); }
 
     return {
       provider_label: "Private DSers Adapter",
@@ -452,9 +454,9 @@ export class PrivateDsersProvider implements ImportProvider {
           if (pushState === "failed" || pushState === "completed") break;
           if (attempt < 3) await sleep(10000);
         }
-      } catch {
+      } catch (pollErr: unknown) {
         warnings.push(
-          "Push status polling could not complete. The push may still be processing — call dsers.job.status later to check.",
+          `Push status polling failed (${pollErr instanceof Error ? pollErr.message : "unknown error"}). The push may still be processing — call dsers.job.status later to check.`,
         );
       }
     }
@@ -722,8 +724,8 @@ export class PrivateDsersProvider implements ImportProvider {
           }
         }
       }
-    } catch {
-      warnings.push("Could not query Shopify delivery profiles.");
+    } catch (profileErr: unknown) {
+      warnings.push(`Could not query Shopify delivery profiles: ${profileErr instanceof Error ? profileErr.message : "unknown error"}`);
     }
 
     if (!profileItems) {
@@ -1108,7 +1110,7 @@ export class PrivateDsersProvider implements ImportProvider {
         const poolPid2 = String((data as Record<string, any>).productId ?? "").trim();
         if (poolPid2 && /^\d{5,}$/.test(poolPid2) && poolPid2 !== globalId) return poolPid2;
       }
-    } catch { /* best-effort */ }
+    } catch (_resolveErr: unknown) { /* best-effort local ID resolution */ }
     return "";
   }
 
@@ -1120,7 +1122,7 @@ export class PrivateDsersProvider implements ImportProvider {
       const trace = url.searchParams.get("afTraceInfo") ?? "";
       const m = /^(\d{10,})/.exec(trace);
       return m ? m[1] : "";
-    } catch {
+    } catch (_urlErr: unknown) {
       return "";
     }
   }
@@ -1180,12 +1182,12 @@ export class PrivateDsersProvider implements ImportProvider {
           `All AliExpress authorizations expired (most recent expired ${expiredAgo} day(s) ago). ` +
           "Re-authorize at DSers > Settings > Supplier > AliExpress > Reauthorize.",
       };
-    } catch {
+    } catch (authErr: unknown) {
       return {
         valid: true,
         best_account: null,
         all_expired: false,
-        details: "Could not verify AliExpress authorization status.",
+        details: `Could not verify AliExpress authorization status: ${authErr instanceof Error ? authErr.message : "unknown error"}`,
       };
     }
   }
@@ -1216,9 +1218,9 @@ export class PrivateDsersProvider implements ImportProvider {
             this.resolvedAlibabaAppId = appId;
             return appId;
           }
-        } catch { /* next */ }
+        } catch (_probeErr: unknown) { /* probe failed for this appId, try next */ }
       }
-    } catch { /* fallback */ }
+    } catch (_listErr: unknown) { /* could not list suppliers, use default */ }
     return this.alibabaAppId;
   }
 
@@ -1226,7 +1228,7 @@ export class PrivateDsersProvider implements ImportProvider {
     try {
       const url = new URL(sourceUrl);
       return `${url.origin}${url.pathname}`;
-    } catch {
+    } catch (_parseErr: unknown) {
       return sourceUrl;
     }
   }
