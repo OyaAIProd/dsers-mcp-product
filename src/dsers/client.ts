@@ -9,7 +9,7 @@ const RETRYABLE_REASONS = new Set([
 ]);
 
 const RATE_LIMIT_WINDOW_MS = 1_000;
-const RATE_LIMIT_MAX_REQUESTS = 5;
+const RATE_LIMIT_MAX_REQUESTS = 15;
 
 export class DSersAPIError extends Error {
   status: number;
