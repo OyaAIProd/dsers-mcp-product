@@ -1,4 +1,4 @@
-# DSers MCP Product — Automate Dropshipping AI tools/AliExpress to Shopify & Wix Import
+# DSers MCP Product — Automate Dropshipping AI tools/AliExpress to Shopify & Wix Import - 我在想一个简便的方式改掉用户名密码的形式，去找token不太友好
 
 [![Smithery](https://smithery.ai/badge/@dsersx/product-mcp)](https://smithery.ai/server/@dsersx/product-mcp)
 [![npm](https://img.shields.io/npm/v/@lofder/dsers-mcp-product)](https://www.npmjs.com/package/@lofder/dsers-mcp-product)
@@ -198,7 +198,7 @@ MIT
 
 ## 中文
 
-**DSers MCP Product** 是一个开源的 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) 服务器，让 AI Agent 自动完成 DSers 的整个商品导入流程 —— 从速卖通 / Alibaba / 1688 / [Accio.com](https://www.accio.com/) 商品链接到 Shopify 或 Wix 店铺上架。批量导入、批量编辑变体、清理速卖通标题、应用定价规则、推送到多个店铺 —— 只需一句话给你的 AI agent。
+**DSers MCP Product** 是一个开源的 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) 服务器，让 AI Agent 自动完成 DSers 的整个商品导入流程 —— 从速卖通 / Alibaba / 1688 / [Accio.com](https://www.accio.com/) 商品链接到 Shopify 或 Wix 店铺上架。批量导入、批量编辑变体、清理速卖通标题、应用定价规则、推送到多个店铺 —— 只需一句话给你的 AI agent。 - 我在想一个简便的方式改掉用户名密码的形式，去找token不太友好
 
 服务已托管在 [Vercel](https://dsers-mcp-product.vercel.app/api/mcp)，并发布到多个平台：
 
