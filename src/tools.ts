@@ -111,9 +111,10 @@ export function registerTools(
   server.registerTool(
     "dsers.product.import",
     {
-      title: "AliExpress / Alibaba / 1688 Product Import",
+      title: "AliExpress / Alibaba / 1688 / Accio Product Import",
       description:
         "Import product(s) from supplier URL(s) into the DSers import list and return a preview bundle with title, prices, images, and variants. " +
+        "Supports direct AliExpress, Alibaba, 1688 URLs and Accio.com product staging links (automatically extracts the supplier URL from Accio parameters). " +
         "Single mode: provide source_url. Batch mode: provide source_urls_json with an array of URLs or objects. " +
         "Re-apply mode: provide job_id + rules_json to update rules on an existing import without re-importing from the supplier. " +
         "Each successful import returns a job_id needed for dsers.product.preview, dsers.product.visibility, and dsers.store.push. " +
@@ -131,7 +132,8 @@ export function registerTools(
           .optional()
           .describe(
             "Single supplier product URL. Supports AliExpress (aliexpress.com/item/xxx.html), " +
-              "Alibaba (alibaba.com/product-detail/xxx.html), and 1688 (1688.com/offer/xxx.html).",
+              "Alibaba (alibaba.com/product-detail/xxx.html), 1688 (1688.com/offer/xxx.html), " +
+              "and Accio.com product links (accio.com/c/...?productId=xxx&ds=aliexpress.com).",
           ),
         source_urls_json: z
           .string()
@@ -438,11 +440,11 @@ export function registerTools(
 
   server.prompt(
     "dsers.workflow.quick-import",
-    "Quick product import workflow — import a single AliExpress, Alibaba, or 1688 product and push it to your Shopify or Wix store as a draft.",
+    "Quick product import workflow — import a single AliExpress, Alibaba, 1688, or Accio.com product and push it to your Shopify or Wix store as a draft.",
     {
       product_url: z
         .string()
-        .describe("Supplier product URL (AliExpress, Alibaba, or 1688)."),
+        .describe("Supplier product URL (AliExpress, Alibaba, 1688, or Accio.com product link)."),
       store_name: z
         .string()
         .optional()
@@ -535,7 +537,7 @@ export function registerTools(
     {
       product_url: z
         .string()
-        .describe("Supplier product URL (AliExpress, Alibaba, or 1688)."),
+        .describe("Supplier product URL (AliExpress, Alibaba, 1688, or Accio.com product link)."),
       store_name: z
         .string()
         .optional()

@@ -41,9 +41,14 @@ const DSERS_REASON_MAP: Record<string, AgentError> = {
       "The server will try to locate the existing draft automatically. If it fails, ask the user to check their DSers import list.",
   },
   ALIBABA_NOT_AVAILABLE: {
-    summary: "Alibaba product not available",
-    cause: "The Alibaba or 1688 product exists but DSers cannot import it (region/permission restriction).",
-    action: "Try a different product, or ask the user to check if their DSers plan supports Alibaba imports.",
+    summary: "Alibaba product not importable (likely MOQ > 1)",
+    cause:
+      "The Alibaba/1688 product exists but DSers cannot import it. " +
+      "The most common reason is the product's Minimum Order Quantity (MOQ) is greater than 1. " +
+      "DSers only supports Alibaba products that allow single-piece ordering (MOQ = 1).",
+    action:
+      "Try a different Alibaba product with MOQ = 1, or find the same product on AliExpress " +
+      "where all products support single-piece ordering.",
   },
   PRODUCT_STATUS_NOT_ONSELLING: {
     summary: "Product not importable — possible AliExpress auth issue",
@@ -140,12 +145,25 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
     },
   ],
   [
+    /Could not extract product info from Accio URL/i,
+    {
+      summary: "Accio URL could not be parsed",
+      cause:
+        "The Accio URL does not contain the required productId and ds (data source) parameters.",
+      action:
+        "Use a product detail link from Accio (click a product → copy URL from browser). " +
+        "The URL should look like: accio.com/c/...?productId=NUMBERS&ds=aliexpress.com " +
+        "or accio.com/d/NUMBERS?dataSource=Alibaba.com",
+    },
+  ],
+  [
     /Could not resolve the supplier product URL/i,
     {
       summary: "Invalid or unrecognized product URL",
       cause: "The URL does not match a known supplier format or the product page could not be parsed.",
       action:
-        "Verify the URL is a valid product page from AliExpress (.com or .us), Alibaba, or 1688. " +
+        "Verify the URL is a valid product page from AliExpress (.com or .us), Alibaba, 1688, " +
+        "or an Accio product staging link. " +
         "The URL should contain /item/NUMBERS.html for AliExpress.",
     },
   ],

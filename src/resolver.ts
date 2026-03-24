@@ -1,10 +1,3 @@
-const ALIEXPRESS_PATTERNS = [
-  /https?:\/\/(?:www\.)?aliexpress\.com\/[^\s"'<>]+/gi,
-  /https?:\/\/(?:[a-z]+\.)?aliexpress\.us\/[^\s"'<>]+/gi,
-];
-const ENCODED_ALIEXPRESS_PATTERN =
-  /https?%3A%2F%2F(?:www%2E)?aliexpress(?:%2Ecom|%2Eus)%2F[^"'<> ]+/gi;
-
 export interface ResolveResult {
   resolved_url: string;
   source_hint: string;
@@ -12,9 +5,76 @@ export interface ResolveResult {
   warnings: string[];
 }
 
+/**
+ * Extract product info from an Accio URL by parsing query params / path.
+ *
+ * Supported formats (all under accio.com):
+ *   /c/{cid}?productId=...&ds=aliexpress.com   (conversation / staging)
+ *   /d/{id}?dataSource=Alibaba.com              (product detail)
+ *   any path with productId + ds|dataSource      (mylist, search, etc.)
+ */
+function resolveAccioUrl(
+  parsed: URL,
+): { resolved_url: string; source_hint: string } | null {
+  const productId =
+    parsed.searchParams.get("productId") ??
+    parsed.searchParams.get("productid");
+
+  const ds = (
+    parsed.searchParams.get("ds") ??
+    parsed.searchParams.get("dataSource") ??
+    parsed.searchParams.get("datasource") ??
+    ""
+  ).toLowerCase();
+
+  if (!productId) {
+    const pathMatch = parsed.pathname.match(/\/d\/(\d+)/);
+    if (pathMatch) {
+      const id = pathMatch[1];
+      if (ds.includes("alibaba") || ds.includes("1688")) {
+        return {
+          resolved_url: `https://www.alibaba.com/product-detail/p_${id}.html`,
+          source_hint: "alibaba",
+        };
+      }
+      return {
+        resolved_url: `https://www.aliexpress.com/item/${id}.html`,
+        source_hint: "aliexpress",
+      };
+    }
+    return null;
+  }
+
+  if (ds.includes("aliexpress")) {
+    return {
+      resolved_url: `https://www.aliexpress.com/item/${productId}.html`,
+      source_hint: "aliexpress",
+    };
+  }
+
+  if (ds.includes("alibaba") || ds.includes("1688")) {
+    return {
+      resolved_url: `https://www.alibaba.com/product-detail/p_${productId}.html`,
+      source_hint: "alibaba",
+    };
+  }
+
+  if (/^\d{5,}$/.test(productId)) {
+    return {
+      resolved_url: `https://www.aliexpress.com/item/${productId}.html`,
+      source_hint: "aliexpress",
+    };
+  }
+
+  return {
+    resolved_url: `https://www.aliexpress.com/item/${productId}.html`,
+    source_hint: "aliexpress",
+  };
+}
+
 export async function resolveSourceUrl(
   url: string,
-  sourceHint?: string
+  sourceHint?: string,
 ): Promise<ResolveResult> {
   const warnings: string[] = [];
   let parsed: URL;
@@ -40,6 +100,15 @@ export async function resolveSourceUrl(
     };
   }
 
+  if (hostname.includes("alibaba.com") || hostname.includes("1688.com")) {
+    return {
+      resolved_url: url,
+      source_hint: hostname.includes("1688") ? "1688" : "alibaba",
+      resolver_mode: "direct",
+      warnings,
+    };
+  }
+
   if (sourceHint === "aliexpress") {
     return {
       resolved_url: url,
@@ -50,36 +119,20 @@ export async function resolveSourceUrl(
   }
 
   if (hostname.includes("accio.com") || sourceHint === "accio") {
-    try {
-      const res = await fetch(url);
-      const html = await res.text();
-      for (const pattern of ALIEXPRESS_PATTERNS) {
-        const match = html.match(pattern);
-        if (match?.[0]) {
-          return {
-            resolved_url: match[0],
-            source_hint: "aliexpress",
-            resolver_mode: "accio",
-            warnings,
-          };
-        }
-      }
-      const encodedMatch = html.match(ENCODED_ALIEXPRESS_PATTERN);
-      if (encodedMatch?.[0]) {
-        const decoded = decodeURIComponent(encodedMatch[0]);
-        return {
-          resolved_url: decoded,
-          source_hint: "aliexpress",
-          resolver_mode: "accio",
-          warnings,
-        };
-      }
-      warnings.push("No AliExpress URL found in page");
-    } catch (err) {
-      warnings.push(
-        err instanceof Error ? err.message : "Failed to fetch page"
-      );
+    const accio = resolveAccioUrl(parsed);
+    if (accio) {
+      return {
+        resolved_url: accio.resolved_url,
+        source_hint: accio.source_hint,
+        resolver_mode: "accio",
+        warnings,
+      };
     }
+    warnings.push(
+      "Could not extract product info from Accio URL. " +
+        "Supported formats: /c/{id}?productId=...&ds=aliexpress.com, " +
+        "/d/{id}?dataSource=Alibaba.com, or any Accio page with productId parameter.",
+    );
     return {
       resolved_url: url,
       source_hint: sourceHint ?? "",

@@ -33,7 +33,7 @@ const DEFAULT_PUSH_CHANNELS = [
 ];
 
 const ALIEXPRESS_ID_PATTERN = /\/(?:item|i)\/(\d+)\.html/i;
-const ALIBABA_ID_PATTERN = /\/product-detail\/[^_]+_(\d+)\.html/i;
+const ALIBABA_ID_PATTERN = /\/product-detail\/[^_]*_(\d+)\.html/i;
 const ALI1688_ID_PATTERN = /1688\.com\/(?:offer|product-detail)\/(\d+)\.html/i;
 
 export interface ImportProvider {
@@ -62,6 +62,7 @@ export class PrivateDsersProvider implements ImportProvider {
   private client: DSersClient;
   private aliexpressAppId: string;
   private alibabaAppId: string;
+  private resolvedAlibabaAppId: string | null = null;
 
   constructor(config?: DSersConfig) {
     const cfg = config ?? configFromEnv();
@@ -185,6 +186,10 @@ export class PrivateDsersProvider implements ImportProvider {
     let [sourceKind, appId, supplyProductId] =
       this.resolveSourceIdentifier(sourceUrl);
 
+    if (sourceKind === "alibaba" || sourceKind === "1688") {
+      appId = await this.detectAlibabaAppId();
+    }
+
     const cleanUrl = this.cleanProductUrl(sourceUrl);
     const parsePayload = await safeCall(() =>
       product.parseProductUrl(this.client, cleanUrl, appId),
@@ -217,7 +222,10 @@ export class PrivateDsersProvider implements ImportProvider {
     );
     if (this.hasReason(importPayload, "ALIBABA_NOT_AVAILABLE")) {
       throw new Error(
-        "The selected Alibaba or 1688 product is recognized, but DSers reports it is currently not available for import.",
+        "The Alibaba/1688 product cannot be imported. Most likely cause: the product's " +
+        "Minimum Order Quantity (MOQ) is greater than 1. DSers only supports Alibaba " +
+        "products with MOQ = 1. Try a different product with single-piece ordering, " +
+        "or find the same product on AliExpress instead.",
       );
     }
     if (this.hasReason(importPayload, "PRODUCT_STATUS_NOT_ONSELLING")) {
@@ -1180,6 +1188,38 @@ export class PrivateDsersProvider implements ImportProvider {
         details: "Could not verify AliExpress authorization status.",
       };
     }
+  }
+
+  /**
+   * Auto-detect the correct appId for Alibaba.com imports.  DSers accounts
+   * bind Alibaba via a specific supplier entry whose appId varies per account.
+   * We discover it by trying parseProductUrl with a probe URL against each
+   * supplier.  The result is cached for the session.
+   */
+  private async detectAlibabaAppId(): Promise<string> {
+    if (this.resolvedAlibabaAppId) return this.resolvedAlibabaAppId;
+    try {
+      const payload = await account.listSuppliers(this.client) as Record<string, any>;
+      const list: Record<string, any>[] =
+        payload?.data?.list ?? payload?.data ?? [];
+      const probeUrl = "https://www.alibaba.com/product-detail/probe_1.html";
+      const seen = new Set<string>();
+      for (const s of list) {
+        const appId = String(s.appid ?? "");
+        if (!appId || seen.has(appId) || appId === this.aliexpressAppId) continue;
+        seen.add(appId);
+        try {
+          const r = await safeCall(() =>
+            product.parseProductUrl(this.client, probeUrl, appId),
+          );
+          if (r && !r.error) {
+            this.resolvedAlibabaAppId = appId;
+            return appId;
+          }
+        } catch { /* next */ }
+      }
+    } catch { /* fallback */ }
+    return this.alibabaAppId;
   }
 
   private cleanProductUrl(sourceUrl: string): string {
