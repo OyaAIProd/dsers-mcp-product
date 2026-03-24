@@ -1,6 +1,6 @@
 ---
 name: dsers-mcp-product
-description: Automate DSers product import from AliExpress/Alibaba/1688 to Shopify. Use when the user wants to import, edit, price, or push dropshipping products to their store via DSers.
+description: Automate DSers product import from AliExpress/Alibaba/1688/Accio to Shopify & Wix. Use when the user wants to import, edit, price, or push dropshipping products to their store via DSers.
 ---
 
 # DSers MCP Product
@@ -30,11 +30,24 @@ Step 1 is required before any import — it returns the store list, available sh
 
 ## Key Decisions
 
+### Accio.com URLs
+
+[Accio.com](https://www.accio.com/) is Alibaba's AI sourcing platform. Users browse products there and copy the URL from their browser.
+
+`dsers.product.import` accepts Accio URLs directly — no pre-processing needed. The tool extracts `productId` and `ds` (data source) from the URL query parameters and resolves the underlying AliExpress or Alibaba product automatically.
+
+Supported Accio URL patterns:
+- `accio.com/c/{cid}?productId=xxx&ds=aliexpress.com` — conversation / staging page
+- `accio.com/d/{id}?dataSource=Alibaba.com` — product detail page
+- Any Accio page URL with a `productId` query parameter
+
+When `ds` contains `aliexpress` → AliExpress import. When `ds` contains `alibaba` or `1688` → Alibaba import. If `ds` is missing and `productId` is numeric (5+ digits), defaults to AliExpress.
+
 ### Single vs Batch
 
 - User gives **one URL** → use `source_url` in `dsers.product.import`
 - User gives **multiple URLs** → use `source_urls_json` (JSON array string). Each URL is processed independently; failures don't block others.
-- Mixed sources (AliExpress + 1688 + Alibaba) work in the same batch call.
+- Mixed sources (AliExpress + 1688 + Alibaba + Accio) work in the same batch call.
 
 ### Push Modes
 
@@ -92,7 +105,7 @@ Map user intent to `push_options` (passed as `push_options_json` — a JSON stri
 - `stores`: array of `{store_ref, display_name, platform, domain, shipping_profiles}`
 - `rule_families`: `{pricing, content, images, visibility}` with supported keys per family
 - `push_options`: supported keys, valid values for enums, available sales channels
-- `source_support`: array of supported platforms (aliexpress, alibaba, 1688)
+- `source_support`: array of supported platforms (aliexpress, alibaba, 1688, accio)
 
 ### dsers.product.import / dsers.product.preview
 
@@ -138,7 +151,8 @@ Common error patterns and recommended actions:
 | DSers API timed out | Wait 30-60s and retry; products with 100+ variants may time out |
 | Job session expired | Re-call dsers.product.import with the same URL |
 | Store not found | Call dsers.store.discover to list valid store names |
-| Invalid product URL | URL must be aliexpress.com/item/NUMBERS.html format |
+| Accio URL could not be parsed | Accio URL must contain productId param — e.g. accio.com/c/...?productId=xxx&ds=aliexpress.com |
+| Invalid product URL | URL must be aliexpress.com/item/NUMBERS.html, alibaba.com/product-detail/xxx.html, or a valid Accio product link |
 
 Never expose raw API error bodies to the user. Summarize using the structured error fields above.
 

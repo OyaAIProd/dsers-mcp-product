@@ -21,22 +21,22 @@ The server is hosted on [Vercel](https://dsers-mcp-product.vercel.app/api/mcp), 
 
 ### Supported product sources
 
-Import works from **AliExpress**, **Alibaba.com**, **1688**, and **[Accio.com](https://www.accio.com/)** — Alibaba's AI business agent for sourcing. Users can search and discover products on Accio, then import them into DSers via this MCP tool using the same `dsers.product.import` flow as direct marketplace URLs.
+Works with product links from **AliExpress**, **Alibaba.com**, **1688**, and **[Accio.com](https://www.accio.com/)**. Just give your AI agent a product link from any of these platforms, and it will import the product into DSers and push it to your store.
 
-### Accio.com integration
+### Accio.com — AI-powered product sourcing
 
-- Browse and search products on [Accio.com](https://www.accio.com/) (Alibaba's AI sourcing platform).
-- Copy the product **staging** or **detail** URL from the browser address bar.
-- Paste that Accio URL into `dsers.product.import` as `source_url`.
-- The tool automatically extracts **productId** and **data source** from the URL parameters.
-- Works for both **AliExpress** and **Alibaba** products found on Accio.
-- **No extra configuration** is required beyond your normal DSers MCP setup.
+[Accio.com](https://www.accio.com/) is Alibaba's AI sourcing assistant. You describe what you're looking for (e.g. "wireless earbuds under $5"), and it searches AliExpress & Alibaba for you.
 
-**Supported Accio URL formats:**
+**How to use it with DSers MCP:**
 
-- `accio.com/c/{id}?productId=xxx&ds=aliexpress.com` — staging area
-- `accio.com/d/{id}?dataSource=Alibaba.com` — product detail
-- Any Accio page URL that includes a `productId` query parameter
+1. Go to [accio.com](https://www.accio.com/) and search for products in natural language.
+2. Browse the results. When you find a product you like, **click on it** to open the product detail panel.
+3. **Copy the URL** from your browser address bar — it will look something like:
+   `https://www.accio.com/c/xxx?productId=1005009871053792&ds=aliexpress.com`
+4. Give that link to your AI agent, e.g.: *"Import this product and push to my store: [paste URL]"*
+5. The agent handles the rest — no extra setup needed.
+
+This works for both AliExpress and Alibaba products found on Accio.
 
 ### Documentation
 
@@ -190,22 +190,22 @@ MIT
 
 ### 支持的商品来源
 
-支持从 **速卖通（AliExpress）**、**Alibaba.com**、**1688** 以及 **[Accio.com](https://www.accio.com/)**（阿里巴巴 AI 智能找商 / 选品平台）导入。用户可在 Accio 上搜索、发现商品，再通过本 MCP 的 `dsers.product.import` 将链接导入 DSers，流程与直接使用各平台商品链接一致。
+支持 **速卖通（AliExpress）**、**Alibaba.com**、**1688** 和 **[Accio.com](https://www.accio.com/)** 的商品链接。把任意平台的商品链接丢给你的 AI 助手，它就能自动导入 DSers 并上架到你的店铺。
 
-### Accio.com 集成说明
+### Accio.com — AI 智能找商
 
-- 在 [Accio.com](https://www.accio.com/) 上浏览、搜索商品（阿里巴巴 AI 选品平台）。
-- 从浏览器地址栏复制商品**暂存区**或**详情页**的完整 URL。
-- 将该 Accio 链接作为 `source_url` 传给 `dsers.product.import`。
-- 工具会从 URL 参数中自动解析 **productId** 与**数据源（data source）**。
-- 适用于 Accio 上展示的 **速卖通** 与 **Alibaba** 商品。
-- **无需额外配置**，与常规 DSers MCP 使用方式相同。
+[Accio.com](https://www.accio.com/) 是阿里巴巴的 AI 选品助手。你用自然语言描述想找的商品（比如"5 美金以下的蓝牙耳机"），它会帮你在速卖通和阿里巴巴上搜索。
 
-**支持的 Accio URL 格式示例：**
+**怎么配合 DSers MCP 用：**
 
-- `accio.com/c/{id}?productId=xxx&ds=aliexpress.com` — 暂存 / 选品区
-- `accio.com/d/{id}?dataSource=Alibaba.com` — 商品详情
-- 任意带有 `productId` 查询参数的 Accio 页面 URL
+1. 打开 [accio.com](https://www.accio.com/)，用自然语言搜索你想要的商品。
+2. 在搜索结果里浏览，看到感兴趣的商品**点击进去**看详情。
+3. **复制浏览器地址栏的链接**，大概长这样：
+   `https://www.accio.com/c/xxx?productId=1005009871053792&ds=aliexpress.com`
+4. 把链接丢给你的 AI 助手，比如说：*"帮我导入这个商品并上架：[粘贴链接]"*
+5. 剩下的 AI 助手会自动搞定，不需要任何额外设置。
+
+Accio 上搜出来的速卖通和阿里巴巴商品都能用。
 
 ### 文档
 
