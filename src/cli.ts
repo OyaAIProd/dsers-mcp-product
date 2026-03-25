@@ -71,7 +71,7 @@ async function handleLogin() {
   log("Validating session...");
   try {
     const resp = await fetch(
-      "https://bff-api-gw.dsers.com/account-user-bff/v1/users/current",
+      "https://bff-api-gw.dsers.com/account-user-bff/v1/users/info",
       {
         headers: {
           Authorization: `Bearer ${session.session_id}`,
