@@ -2,18 +2,19 @@
 
 ## Tagline
 
-AI-powered dropshipping: import products from AliExpress, Alibaba, Accio to Shopify & Wix
+AI-powered dropshipping: import products from AliExpress, Alibaba, Accio to Shopify & Wix — zero-password setup
 
 ## Description
 
 DSers MCP Product lets AI agents automate the entire DSers dropshipping workflow. Give your AI a product link from AliExpress, Alibaba, or Accio.com — it handles import, title cleanup, pricing rules, variant editing, and multi-store push to Shopify or Wix. One sentence, full automation.
 
+No passwords in config files. Run `npx @lofder/dsers-mcp-product login` once to authenticate via your browser — your credentials never touch this tool.
+
 The server is open-source, hosted on Vercel, and published on Smithery, npm, and the official MCP Registry.
 
 ## Setup Requirements
 
-- `DSERS_EMAIL` (required): Your DSers account email. Sign up at https://www.dsers.com/
-- `DSERS_PASSWORD` (required): Your DSers account password.
+- Run `npx @lofder/dsers-mcp-product login` to authenticate (opens browser, zero password in config)
 - `DSERS_ENV` (optional): `production` (default) or `test`.
 
 ## Category
@@ -22,6 +23,8 @@ Business Tools
 
 ## Features
 
+- Zero-password browser login — no credentials in config files, session encrypted locally
+- Pre-push safety checks — blocks below-cost pricing, zero price, or zero stock before pushing
 - Import products from AliExpress, Alibaba, and Accio.com URLs
 - Accio.com integration: search products with AI, copy link, import — zero extra setup
 - Batch import: process multiple product URLs in a single call
@@ -54,7 +57,7 @@ Business Tools
 
 ## Tags
 
-dsers, shopify, wix, aliexpress, alibaba, accio, dropshipping, ecommerce, product-import, mcp, ai-agent, bulk-import, pricing-rules, multi-store, seo, typescript, smithery
+dsers, shopify, wix, aliexpress, alibaba, accio, dropshipping, ecommerce, product-import, mcp, ai-agent, bulk-import, pricing-rules, multi-store, seo, typescript, smithery, zero-password, safety-checks
 
 ## Documentation URL
 

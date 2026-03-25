@@ -2,34 +2,26 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.lofder/dsers-mcp-product",
   "title": "DSers MCP Product Import",
-  "description": "Automate AliExpress dropshipping import to Shopify via DSers. Bulk import, pricing, multi-store.",
+  "description": "Automate dropshipping with AI: import products from AliExpress, Alibaba, Accio to Shopify & Wix via DSers. Zero-password browser login, pre-push safety checks, bulk import, pricing rules, multi-store push.",
   "repository": {
     "url": "https://github.com/lofder/dsers-mcp-product",
     "source": "github"
   },
-  "version": "1.0.2",
+  "version": "1.1.4",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@lofder/dsers-mcp-product",
-      "version": "1.0.1",
+      "version": "1.1.4",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
-          "name": "DSERS_EMAIL",
-          "description": "DSers account email",
-          "isRequired": true,
-          "format": "string",
-          "isSecret": true
-        },
-        {
-          "name": "DSERS_PASSWORD",
-          "description": "DSers account password",
-          "isRequired": true,
-          "format": "string",
-          "isSecret": true
+          "name": "DSERS_ENV",
+          "description": "API environment: production (default) or test",
+          "isRequired": false,
+          "format": "string"
         }
       ]
     }
