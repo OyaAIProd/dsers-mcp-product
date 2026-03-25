@@ -17,6 +17,16 @@
 
 **DSers MCP Product** is an open-source [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that lets AI Agents automate the entire DSers import workflow — from AliExpress / Alibaba / [Accio.com](https://www.accio.com/) product URL to Shopify or Wix store listing. Bulk import, batch edit variants, clean AliExpress titles, apply pricing rules, and push to multiple stores — all with a single sentence to your AI agent.
 
+#### What can it do?
+
+- **One-click import** — paste a product link, your AI agent imports it into DSers automatically
+- **Clean up titles** — strips the messy keyword-stuffed AliExpress titles into something readable
+- **Pricing rules** — markup multiplier (e.g. 2.5x), fixed markup (e.g. +$5), compare-at / sale prices
+- **Batch import** — import multiple products at once with a list of URLs
+- **Multi-store push** — push one product to all your connected Shopify & Wix stores in one go
+- **Safety checks** — automatically blocks pushes that would result in below-cost pricing, zero price, or zero stock
+- **SEO optimization** — let AI rewrite the title and description for better search rankings before pushing
+
 The server is hosted on [Vercel](https://dsers-mcp-product.vercel.app/api/mcp) and published across multiple platforms:
 
 ### Available On
@@ -60,6 +70,12 @@ This works for both AliExpress and Alibaba products found on Accio.
 | [USAGE.md](USAGE.md) | Installation, client config (Cursor, Claude Desktop), scenario examples |
 | [SKILL.md](SKILL.md) | AI agent instruction file — workflow, rules, push options, error handling |
 | [SKILL-CN.md](SKILL-CN.md) | Chinese human-readable guide for SKILL.md |
+
+### What You Need
+
+- A [DSers](https://www.dsers.com/) account (free plan works)
+- A Shopify or Wix store already connected in DSers
+- An MCP-compatible AI client — [Cursor](https://cursor.sh/), [Claude Desktop](https://claude.ai/desktop), [Windsurf](https://codeium.com/windsurf), or any client that supports MCP
 
 ### Quick Start
 
@@ -130,6 +146,22 @@ npx @lofder/dsers-mcp-product login
 
 > **For developers:** The server also accepts credentials via HTTP headers (Smithery auto-injects these), a `DSERS_TOKEN` env var, or the legacy `DSERS_EMAIL` + `DSERS_PASSWORD` env vars. For most users, just use `login`.
 
+### Usage Examples
+
+Once set up, just talk to your AI agent in plain language:
+
+> "Import this product and push to my Shopify store as a draft: https://www.aliexpress.com/item/1005006372921430.html"
+
+> "Import this product, mark up the price by 2.5x, and push it: https://www.aliexpress.com/item/1005006372921430.html"
+
+> "Batch import these 3 products and push them all to my store: [URL1] [URL2] [URL3]"
+
+> "Push this product to all my connected stores"
+
+> "Rewrite the title and description for SEO, then push to my store"
+
+The agent figures out the right tools to call. You don't need to know tool names or parameters.
+
 ### Install via Smithery
 
 ```bash
@@ -186,17 +218,26 @@ dsers-mcp-product/
 
 ### Seven Tools
 
-| # | Tool | Title | Description |
-|---|------|-------|-------------|
-| 1 | `dsers.store.discover` | DSers Store & Rule Discovery | Discover stores, shipping profiles, supported rules |
-| 2 | `dsers.rules.validate` | Pricing & Content Rule Validator | Dry-run rule validation |
-| 3 | `dsers.product.import` | AliExpress / Alibaba / Accio Import | Import from URL(s), apply rules, get preview; re-apply mode via job_id |
-| 4 | `dsers.product.preview` | Import Draft Preview | Reload a saved preview |
-| 5 | `dsers.product.visibility` | Shopify / Wix Visibility Toggle | Toggle draft / published |
-| 6 | `dsers.store.push` | Push to Shopify / Wix Store | Push single/batch/multi-store |
-| 7 | `dsers.job.status` | Job Status Tracker | Check push result |
+| # | Tool | What it does |
+|---|------|-------------|
+| 1 | `dsers.store.discover` | See your connected stores, available shipping methods, and what rules you can apply |
+| 2 | `dsers.rules.validate` | Test your pricing or title rules before applying — catches mistakes early |
+| 3 | `dsers.product.import` | Paste a product URL, optionally apply pricing/title rules, and get a preview before pushing |
+| 4 | `dsers.product.preview` | Review a product you already imported — title, price, variants, stock at a glance |
+| 5 | `dsers.product.visibility` | Set whether the product shows up in your store or stays as a hidden draft |
+| 6 | `dsers.store.push` | Send products to your Shopify or Wix store — one at a time, in bulk, or to all stores at once |
+| 7 | `dsers.job.status` | Check if a push finished and whether it succeeded |
 
-All tools return clear, structured error messages so your AI agent knows what went wrong and what to do next.
+All tools return clear error messages so your AI agent knows what went wrong and what to do next — no cryptic error codes.
+
+### Pre-Push Safety Checks
+
+Before pushing a product to your store, the tool automatically checks for common mistakes:
+
+- **Hard blocks** (push won't go through): selling below supplier cost, zero sell price, all variants out of stock
+- **Warnings** (push goes through, but you'll see a heads-up): profit margin below 10%, stock under 5 units, sell price under $1
+
+If something looks wrong, your AI agent will tell you exactly which variant has the problem and why. If you're sure it's fine, you can override with `force_push`.
 
 ### Four Prompts
 
@@ -219,6 +260,14 @@ Ready-made workflows your AI client can use directly:
 | `DSERS_BASE_URL` | No | Override API base URL |
 | `IMPORT_MCP_STATE_DIR` | No | Job state directory (default: `.state`) |
 
+### What's Next
+
+- Support more store platforms that DSers already connects to (eBay, Wish, etc.)
+- Smarter pricing rule templates
+- More granular inventory sync options
+
+Got an idea or feature request? [Open an issue](https://github.com/lofder/dsers-mcp-product/issues) — suggestions and contributions from other developers are very welcome.
+
 ### Also Available
 
 A [Python version](https://github.com/lofder/dsers-mcp-product-py) is available for local stdio deployments.
@@ -234,6 +283,16 @@ MIT
 ## 中文
 
 **DSers MCP Product** 是一个开源的 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) 服务器，让 AI Agent 自动完成 DSers 的整个商品导入流程 —— 从速卖通 / Alibaba / [Accio.com](https://www.accio.com/) 商品链接到 Shopify 或 Wix 店铺上架。批量导入、批量编辑变体、清理速卖通标题、应用定价规则、推送到多个店铺 —— 只需一句话给你的 AI agent。
+
+#### 能做什么？
+
+- **一句话导入** — 贴个商品链接，AI 助手自动导入到 DSers
+- **标题清理** — 把速卖通那些关键词堆砌的乱标题整理成人话
+- **定价规则** — 加价倍率（比如 2.5 倍）、固定加价（比如 +5 美金）、划线价
+- **批量导入** — 一次丢一堆链接，全部导入
+- **多店铺推送** — 一个商品一次推到你所有的 Shopify 和 Wix 店铺
+- **安全校验** — 推送前自动拦截低于成本价、零售价为零、库存为零的商品
+- **SEO 优化** — 让 AI 重写标题和描述，提高搜索排名后再推送
 
 服务已托管在 [Vercel](https://dsers-mcp-product.vercel.app/api/mcp)，并发布到多个平台：
 
@@ -278,6 +337,12 @@ Accio 上搜出来的速卖通和阿里巴巴商品都能用。
 | [USAGE.md](USAGE.md) | 安装、客户端配置（Cursor、Claude Desktop）、使用场景 |
 | [SKILL.md](SKILL.md) | AI agent 指令文件 — 工作流、规则、推送选项、错误处理 |
 | [SKILL-CN.md](SKILL-CN.md) | SKILL.md 的中文说明 |
+
+### 使用前提
+
+- 一个 [DSers](https://www.dsers.com/) 账号（免费版就行）
+- Shopify 或 Wix 店铺已经在 DSers 里绑定好了
+- 一个支持 MCP 的 AI 客户端 — [Cursor](https://cursor.sh/)、[Claude Desktop](https://claude.ai/desktop)、[Windsurf](https://codeium.com/windsurf) 或其他支持 MCP 的工具
 
 ### 快速开始
 
@@ -348,6 +413,22 @@ npx @lofder/dsers-mcp-product login
 
 > **开发者注：** 也支持通过 HTTP headers（Smithery 自动注入）、`DSERS_TOKEN` 环境变量、或旧的 `DSERS_EMAIL` + `DSERS_PASSWORD` 环境变量传入凭据。普通用户直接用 `login` 就行。
 
+### 使用示例
+
+装好之后，直接用自然语言跟 AI 助手说就行：
+
+> "帮我导入这个商品，推到我的 Shopify 店铺草稿：https://www.aliexpress.com/item/1005006372921430.html"
+
+> "导入这个商品，加价 2.5 倍，然后推送：https://www.aliexpress.com/item/1005006372921430.html"
+
+> "批量导入这 3 个商品，全部推到店铺：[链接1] [链接2] [链接3]"
+
+> "把这个商品推到我所有店铺"
+
+> "帮我把标题和描述重写一下做 SEO 优化，然后推送"
+
+AI 助手会自己判断调用哪个工具，你不需要知道工具名称或参数。
+
 ### 通过 Smithery 安装
 
 ```bash
@@ -378,17 +459,26 @@ npx @smithery/cli dev ./src/index.ts
 
 ### 七个工具
 
-| # | 工具 | 标题 | 说明 |
-|---|------|------|------|
-| 1 | `dsers.store.discover` | 店铺与规则发现 | 查询店铺、配送方案、支持的规则 |
-| 2 | `dsers.rules.validate` | 定价与内容规则校验 | 规则校验试运行 |
-| 3 | `dsers.product.import` | 速卖通/Alibaba/Accio 导入 | 从 URL 导入、应用规则、获取预览；支持 re-apply 模式 |
-| 4 | `dsers.product.preview` | 导入草稿预览 | 重新加载已保存的预览 |
-| 5 | `dsers.product.visibility` | Shopify/Wix 可见性切换 | 切换草稿 / 上架 |
-| 6 | `dsers.store.push` | 推送到 Shopify/Wix | 单条/批量/多店铺推送 |
-| 7 | `dsers.job.status` | 任务状态跟踪 | 查看推送结果 |
+| # | 工具 | 干什么的 |
+|---|------|---------|
+| 1 | `dsers.store.discover` | 查看你绑定了哪些店铺、有哪些配送方式、能用什么规则 |
+| 2 | `dsers.rules.validate` | 先试试定价或标题规则对不对，不会真改东西 |
+| 3 | `dsers.product.import` | 贴个商品链接，可以顺便加定价/标题规则，推送前先给你看预览 |
+| 4 | `dsers.product.preview` | 看一下已经导入的商品 — 标题、价格、变体、库存一目了然 |
+| 5 | `dsers.product.visibility` | 设置商品在店铺里是上架展示还是隐藏草稿 |
+| 6 | `dsers.store.push` | 把商品推到你的 Shopify 或 Wix 店铺 — 单个推、批量推、或一次推到所有店铺 |
+| 7 | `dsers.job.status` | 看看推送完了没、成功了没 |
 
-所有工具报错时会返回清晰的结构化消息，AI 助手能看懂出了什么问题、该怎么处理。
+报错时会返回清晰的消息，AI 助手能看懂出了什么问题、该怎么办 — 不会给你一串看不懂的错误码。
+
+### 推送前安全校验
+
+推送到店铺之前，工具会自动帮你检查常见问题：
+
+- **直接拦截**（不让推）：售价低于进货成本、零售价为 0、所有变体都没库存
+- **警告提醒**（能推，但会提示你）：利润率低于 10%、库存少于 5 件、售价低于 1 美金
+
+有问题的话，AI 助手会告诉你具体是哪个变体出了什么问题。确定没问题的话可以用 `force_push` 强制推送。
 
 ### 四个预设提示
 
@@ -400,6 +490,14 @@ MCP 客户端可直接展示给用户的工作流模板：
 | `dsers.workflow.bulk-import` | 批量导入 + 统一定价倍率 |
 | `dsers.workflow.multi-push` | 一个商品推送到所有店铺 |
 | `dsers.workflow.seo-optimize` | 导入后 AI 重写标题和描述做 SEO 优化，再推送 |
+
+### 后续计划
+
+- 支持更多 DSers 已接入的店铺平台（eBay、Wish 等）
+- 更智能的定价规则模板
+- 更精细的库存同步选项
+
+有想法或需求？欢迎 [提 issue](https://github.com/lofder/dsers-mcp-product/issues) —— 非常欢迎其他开发者的建议和贡献。
 
 ### 其他版本
 
