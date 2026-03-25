@@ -156,7 +156,7 @@ async function startServer() {
   const service = new ImportFlowService(provider, store);
 
   const server = new McpServer(
-    { name: "dsers-mcp-product", version: "1.1.3" },
+    { name: "dsers-mcp-product", version: "1.1.4" },
     { instructions: SERVER_INSTRUCTIONS },
   );
 
