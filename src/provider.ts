@@ -231,23 +231,10 @@ export class PrivateDsersProvider implements ImportProvider {
       );
     }
     if (this.hasReason(importPayload, "PRODUCT_STATUS_NOT_ONSELLING")) {
-      if (sourceKind === "aliexpress") {
-        const authCheck = await this.checkAliExpressAuth();
-        if (!authCheck.valid) {
-          throw new Error(
-            "AliExpress import failed (PRODUCT_STATUS_NOT_ONSELLING). " +
-            "Root cause: " + authCheck.details + " " +
-            "Action: The DSers account owner must re-authorize their AliExpress account at " +
-            "DSers > Settings > Supplier > AliExpress > Reauthorize, then retry the import.",
-          );
-        }
-      }
       throw new Error(
         "The supplier product cannot be imported — DSers reports PRODUCT_STATUS_NOT_ONSELLING. " +
-        "Possible causes: (1) the product has been delisted by the supplier, " +
-        "(2) the product is unavailable in the selected country/region, " +
-        "or (3) the AliExpress authorization may need refreshing. " +
-        "Try verifying the product URL in a browser and re-authorizing the AliExpress account in DSers settings.",
+        "The product is likely delisted, off-shelf, or unavailable in the selected country/region. " +
+        "Try verifying the product URL in a browser, or use a different product.",
       );
     }
     const alreadyExists = this.hasReason(

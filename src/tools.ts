@@ -43,7 +43,7 @@ export function registerTools(
       description:
         "Retrieve available stores, supported rule families (pricing, content, images), push options, and visibility modes for the connected DSers account. " +
         "Call this first before any other tool — the response contains store IDs, shipping profiles, and configuration constraints needed by all subsequent operations. " +
-        "Returns: provider_label, source_support (aliexpress/alibaba), stores (each with store_ref, display_name, platform, shipping_profiles), rule_families, push_options, notes, account_info (includes AliExpress authorization status and plan limits — check this when imports fail).",
+        "Returns: provider_label, source_support (aliexpress/alibaba), stores (each with store_ref, display_name, platform, shipping_profiles), rule_families, push_options, notes, account_info (plan limits).",
       inputSchema: {
         target_store: z
           .string()

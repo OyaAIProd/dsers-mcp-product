@@ -190,7 +190,7 @@ Session 有效期约 **6 小时**，过期后工具会返回错误提示。
 ## 错误处理
 
 - **Accio 链接解析失败**：确保 URL 包含 `productId` 参数，例如 `accio.com/c/...?productId=xxx&ds=aliexpress.com`。
-- **导入失败**：检查 URL 格式。速卖通捆绑商品链接不支持。Alibaba 需要 DSers 账户启用了对应来源。1688 链接可以识别，但需要 DSers 账号开通 1688 来源权限。Accio 链接需要包含 productId 参数。
+- **导入失败**：检查 URL 格式。速卖通捆绑商品链接不支持。Alibaba 需要 DSers 账户启用了对应来源且 MOQ=1。Accio 链接需要包含 productId 参数。商品可能已下架或不可用，请在浏览器中验证链接。
 - **"shipping profile not found"**：一般不会出现（自动发现）。如果出现，调用 `dsers.store.discover` 查看可用方案，然后重试时指定 `shipping_profile_name`。
 - **推送被安全检查拦截**：展示具体的风险数据给用户；修复定价规则或获得用户明确确认后使用 `force_push=true`。
 - **推送返回 `failed`**：检查 `warnings` 数组。常见原因：导入列表中的商品在准备和推送之间被删除。

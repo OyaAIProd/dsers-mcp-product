@@ -60,16 +60,21 @@ const DSERS_REASON_MAP: Record<string, AgentError> = {
       "Try a different Alibaba product with MOQ = 1, or find the same product on AliExpress " +
       "where all products support single-piece ordering.",
   },
-  PRODUCT_STATUS_NOT_ONSELLING: {
-    summary: "Product not importable — possible AliExpress auth issue",
+  PUSH_PRODUCT_WAITING: {
+    summary: "Push temporarily blocked — DSers is processing",
     cause:
-      "DSers reports the product is not on-selling. Most common root cause: the AliExpress authorization " +
-      "has expired, so DSers cannot verify product availability. Less commonly, the product is genuinely " +
-      "off-shelf or delisted.",
+      "DSers is currently migrating or syncing product data. This is a transient backend state.",
     action:
-      "First check AliExpress authorization: call dsers.store.discover and inspect account_info.aliexpress_auth. " +
-      "If expired, the user must re-authorize at DSers > Settings > Supplier > AliExpress > Reauthorize. " +
-      "If auth is valid, the product itself may be unavailable — try a different product URL.",
+      "Wait 1-2 minutes and retry the push. This usually resolves on its own. " +
+      "If it persists for more than 5 minutes, the user should check the DSers dashboard.",
+  },
+  PRODUCT_STATUS_NOT_ONSELLING: {
+    summary: "Product not importable — off-shelf or delisted",
+    cause:
+      "DSers reports the product is not on-selling. The product has likely been delisted by the supplier, " +
+      "removed from the platform, or is unavailable in the selected country/region.",
+    action:
+      "Verify the product URL in a browser to check if it's still available. If not, try a different product URL.",
   },
   PERMISSION_DENIED: {
     summary: "Permission denied",
@@ -259,30 +264,31 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
     },
   ],
   [
-    /All AliExpress authorizations expired/i,
-    {
-      summary: "AliExpress authorization expired — cannot import new products",
-      cause:
-        "All AliExpress supplier accounts linked to this DSers account have expired. " +
-        "DSers cannot fetch product data from AliExpress without a valid authorization.",
-      action:
-        "The DSers account owner must re-authorize their AliExpress account: " +
-        "Go to DSers > Settings > Supplier > AliExpress > Reauthorize. " +
-        "Once done, retry the import.",
-    },
-  ],
-  [
     /not currently importable|not importable under|PRODUCT_STATUS_NOT_ONSELLING/i,
     {
       summary: "Product not importable via DSers",
       cause:
-        "The supplier product is recognized but cannot be imported. Most likely causes: " +
-        "(1) AliExpress authorization expired, (2) the product is off-shelf or delisted, " +
-        "or (3) the product is region-restricted.",
+        "The supplier product is recognized but cannot be imported. The product is likely " +
+        "off-shelf, delisted, or unavailable in the selected country/region.",
       action:
-        "First check AliExpress authorization via dsers.store.discover (look at account_info.aliexpress_auth). " +
-        "If expired, re-authorize at DSers > Settings > Supplier > AliExpress > Reauthorize. " +
-        "If auth is valid, try a different product URL.",
+        "Verify the product URL in a browser. If the product page is gone or shows 'not available', " +
+        "try a different product URL.",
+    },
+  ],
+  [
+    /SyntaxError|Unexpected token|Invalid JSON in|malformed json/i,
+    {
+      summary: "Invalid JSON syntax",
+      cause: "A JSON parameter (e.g. rules_json or source_urls_json) contains invalid JSON — likely a missing brace, bracket, or comma.",
+      action: "Fix the JSON syntax and retry. Validate with JSON.parse() before sending.",
+    },
+  ],
+  [
+    /PUSH_PRODUCT_WAITING|products are being migrated/i,
+    {
+      summary: "Push temporarily blocked — DSers is processing",
+      cause: "DSers is currently migrating or syncing product data. This is a transient backend state.",
+      action: "Wait 1-2 minutes and retry the push. This usually resolves on its own.",
     },
   ],
 ];

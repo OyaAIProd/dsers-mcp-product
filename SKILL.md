@@ -220,7 +220,7 @@ Common error patterns and recommended actions:
 |--------------|-------------------|
 | DSers credentials not configured | Guide user to set credentials (see Authentication section) |
 | Store authorization expired | User must re-authorize the store in DSers Settings |
-| Product not importable | Try a different product or check DSers AliExpress authorization |
+| Product not importable | Product may be delisted or off-shelf — verify URL in browser or try a different product |
 | DSers API timed out | Wait 30-60s and retry; products with 100+ variants may time out |
 | Job session expired | Re-call dsers.product.import with the same URL |
 | Store not found | Call dsers.store.discover to list valid store names |

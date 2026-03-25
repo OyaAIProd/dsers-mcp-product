@@ -128,18 +128,17 @@ function handleLogout() {
 /* ------------------------------------------------------------------ */
 
 async function startServer() {
-  // Credential resolution: HTTP headers > env vars > token file
-  let dsersConfig = configFromEnv();
+  // Credential resolution priority: token file > env vars
+  // (HTTP headers always override at runtime, handled by DSersClient)
+  let dsersConfig;
 
-  if (!dsersConfig.email && !dsersConfig.password) {
-    // No env vars — try token file
-    const token = loadToken();
-    if (token) {
-      dsersConfig = configFromToken(token.session_id, token.state, token.base_url);
-    }
+  const token = loadToken();
+  if (token) {
+    dsersConfig = configFromToken(token.session_id, token.state, token.base_url);
+  } else {
+    dsersConfig = configFromEnv();
   }
 
-  // If still no credentials and no token, warn but don't exit — tools will show helpful errors
   if (!dsersConfig.email && !dsersConfig.password && !dsersConfig.sessionId) {
     process.stderr.write(
       "Warning: No DSers credentials found.\n" +
@@ -156,7 +155,7 @@ async function startServer() {
   const service = new ImportFlowService(provider, store);
 
   const server = new McpServer(
-    { name: "dsers-mcp-product", version: "1.1.4" },
+    { name: "dsers-mcp-product", version: "1.1.5" },
     { instructions: SERVER_INSTRUCTIONS },
   );
 
@@ -170,9 +169,21 @@ async function startServer() {
 /*  Entrypoint                                                        */
 /* ------------------------------------------------------------------ */
 
+function printHelp() {
+  log("dsers-mcp-product — MCP server for DSers dropshipping product management\n");
+  log("Usage:");
+  log("  npx @lofder/dsers-mcp-product              Start the MCP server (stdio)");
+  log("  npx @lofder/dsers-mcp-product login         Authenticate with DSers via browser");
+  log("  npx @lofder/dsers-mcp-product logout        Clear saved session");
+  log("  npx @lofder/dsers-mcp-product --help        Show this help message\n");
+  log("For more info: https://github.com/lofder/dsers-mcp-product");
+}
+
 const cmd = process.argv[2]?.toLowerCase();
 
-if (cmd === "login") {
+if (cmd === "--help" || cmd === "-h" || cmd === "help") {
+  printHelp();
+} else if (cmd === "login") {
   handleLogin().catch((e) => { log(`Error: ${e.message ?? e}`); process.exit(1); });
 } else if (cmd === "logout") {
   handleLogout();

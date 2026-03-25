@@ -1,7 +1,7 @@
 export const SERVER_INSTRUCTIONS = [
   "DSers dropshipping automation server. Workflow: discover → import → push.",
   "",
-  "FIRST CALL: Always start with dsers.store.discover to get store IDs, shipping profiles, and capabilities. It also returns account_info with AliExpress authorization status — check this when imports fail.",
+  "FIRST CALL: Always start with dsers.store.discover to get store IDs, shipping profiles, and capabilities.",
   "",
   "AUTH: If any tool returns an auth error, stop all operations and tell the user:",
   '"Please run this in your terminal: npx @lofder/dsers-mcp-product login"',
