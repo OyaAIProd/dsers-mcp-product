@@ -14,3 +14,5 @@ next-env.d.ts
 test/
 .mcpregistry_github_token
 .mcpregistry_registry_token
+.dsers-mcp/
+credentials

@@ -303,6 +303,9 @@ export function registerTools(
       title: "Push Product to Shopify / Wix Store",
       description:
         "Push one or more prepared import drafts to the connected Shopify or Wix store(s). " +
+        "SAFETY: Automatic pre-push validation checks pricing (blocks if sell price < cost or $0) and stock (blocks if all variants have zero inventory). " +
+        "Warnings are raised for low margin (<10%), low stock (<5 units), or very low price (<$1). " +
+        "If blocked, fix pricing rules or use force_push=true ONLY after explaining the risk to the user. " +
         "Three modes: (1) Single push — provide job_id + target_store. " +
         "(2) Batch push — provide job_ids_json with an array of job IDs or objects; takes priority over job_id. " +
         "(3) Multi-store push — provide job_id + target_stores_json to push one product to multiple stores. " +
@@ -356,6 +359,14 @@ export function registerTools(
               "sales_channels (string[]), only_push_specifications (bool). " +
               'Example: {"image_strategy": "all_available", "shipping_profile_name": "DSers Shipping Profile"}',
           ),
+        force_push: z
+          .boolean()
+          .optional()
+          .describe(
+            "Override pre-push safety checks. ONLY set true after you have shown the user the specific risk " +
+              "(e.g., 'This product is priced below cost — you will lose $X per sale') and they explicitly confirmed. " +
+              "Never set this silently.",
+          ),
       },
       annotations: {
         readOnlyHint: false,
@@ -391,6 +402,7 @@ export function registerTools(
         }
 
         if (args.visibility_mode) payload.visibility_mode = args.visibility_mode;
+        if (args.force_push) payload.force_push = true;
 
         if (args.push_options_json) {
           const parsed = safeJsonParse(

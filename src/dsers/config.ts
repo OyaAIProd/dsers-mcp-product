@@ -18,6 +18,10 @@ export interface DSersConfig {
   email: string;
   password: string;
   sessionFile: string;
+  /** Pre-authenticated session ID from token store or CLI login */
+  sessionId?: string;
+  /** Pre-authenticated state value */
+  sessionState?: string;
 }
 
 /**
@@ -48,4 +52,17 @@ export function configFromParams(
   const baseUrl = env === "test" ? TEST_URL : PROD_URL;
   const sessionFile = resolve(getSafeDir(), "..", "..", ".session.json");
   return { baseUrl, email, password, sessionFile };
+}
+
+/**
+ * Create config from a pre-authenticated session token (from CLI login or token store).
+ * No email/password needed — session_id is used directly.
+ */
+export function configFromToken(
+  sessionId: string,
+  state: string = "",
+  baseUrl: string = PROD_URL,
+): DSersConfig {
+  const sessionFile = resolve(getSafeDir(), "..", "..", ".session.json");
+  return { baseUrl, email: "", password: "", sessionFile, sessionId, sessionState: state };
 }

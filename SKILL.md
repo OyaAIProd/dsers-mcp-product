@@ -7,12 +7,61 @@ description: Automate DSers product import from AliExpress/Alibaba/1688/Accio to
 
 ## Authentication
 
-This server requires DSers account credentials to call any tool. Credentials are resolved in priority order:
+### Credential resolution (priority order)
 
-1. **HTTP headers** `x-dsers-email` + `x-dsers-password` — set automatically when connected through Smithery or an MCP proxy
-2. **Environment variables** `DSERS_EMAIL` + `DSERS_PASSWORD` — set in the MCP client config (`env` block in `.cursor/mcp.json` or Claude Desktop config)
+1. **HTTP headers** `x-dsers-email` / `x-dsers-password` — automatic on Smithery / MCP proxy
+2. **Environment variable** `DSERS_TOKEN` — encrypted token string (advanced)
+3. **Local credentials file** `~/.dsers-mcp/credentials` — created by `login` command (recommended)
+4. **Environment variables** `DSERS_EMAIL` / `DSERS_PASSWORD` — legacy, still supported
 
-If a tool returns an error containing "DSers credentials not found", the user has not configured their credentials yet. Guide them to the appropriate setup method — do NOT ask them to paste credentials into the chat.
+### Session lifetime
+
+Sessions last approximately **6 hours**. After expiry, any tool call will return a structured error. You (the agent) should detect this and guide the user to re-authenticate — do NOT retry failed calls silently.
+
+### Agent decision tree for authentication
+
+Use this logic every time you encounter an auth-related issue:
+
+**Scenario 1: "DSers credentials not configured"**
+- Meaning: No session token exists. The user has never run `login`, or they ran `logout`.
+- What you should do:
+  1. Tell the user you need them to log in to DSers first.
+  2. Ask them to open their terminal and run: `npx @lofder/dsers-mcp-product login`
+  3. Reassure them: "This opens the official DSers website in your browser. You log in there directly — your password never passes through this tool. It takes about 30 seconds."
+  4. After they confirm login is done, retry your tool call.
+- If login reports "No Chromium browser found" and then "No TTY available": the user is on a headless server. Suggest setting `DSERS_EMAIL` and `DSERS_PASSWORD` environment variables as a fallback.
+
+**Scenario 2: "DSers session expired"**
+- Meaning: A session existed but is no longer valid (expired after ~6 hours, or DSers server invalidated it).
+- What you should do:
+  1. Tell the user: "Your DSers session has expired — this happens every few hours for security. Could you run `npx @lofder/dsers-mcp-product login` again? It'll only take a moment."
+  2. After they confirm, retry.
+  3. If the user is in the middle of a workflow (e.g., import was done, now pushing), reassure them that the import data is still saved and they can continue after re-authenticating.
+
+**Scenario 3: User wants to switch DSers accounts**
+- What you should do:
+  1. Tell the user to run: `npx @lofder/dsers-mcp-product logout` (clears the old session)
+  2. Then: `npx @lofder/dsers-mcp-product login` (log in with the new account)
+  3. After login, all tools will use the new account automatically.
+
+**Scenario 4: Login command fails**
+- "Browser launch failed": Chrome/Edge/Brave is not installed or cannot be opened. The tool will automatically fall back to Safari (macOS) or terminal prompt.
+- "Could not read session cookie": The browser opened but the session wasn't detected. The user should make sure they completed the DSers login (reached the dashboard, not just the login form).
+- "Terminal login failed": Wrong email/password entered in the terminal fallback. The user can retry (up to 3 attempts).
+- If all methods fail: suggest `DSERS_EMAIL` + `DSERS_PASSWORD` env vars as the last resort.
+
+**Scenario 5: Proactive auth check**
+- Call `dsers.store.discover` at the start of any workflow. If it succeeds, auth is valid. If it returns an auth error, handle it BEFORE attempting imports or pushes.
+- Do NOT attempt `dsers.product.import` or `dsers.store.push` without confirming auth works first.
+
+### Rules for you (the agent)
+
+- NEVER ask the user to paste their password into the chat or into any file you can see
+- NEVER suggest putting plain-text passwords in MCP config as the primary method — always suggest `login` first
+- NEVER retry tool calls in a loop when you get an auth error — stop and ask the user to re-authenticate
+- NEVER assume the user knows what MCP, CLI, or environment variables are — explain in simple terms
+- When suggesting terminal commands, always provide the exact command to copy-paste
+- If the user seems confused, simplify: "Just run this one command in your terminal, then come back to me"
 
 ## Workflow
 
@@ -84,6 +133,28 @@ Map natural language to rules:
 
 Use `dsers.rules.validate` to check rules before importing — it returns `effective_rules_snapshot` (what will be applied) and `errors` (blocking issues).
 
+### Pre-Push Safety Checks
+
+`dsers.store.push` automatically validates pricing and stock before sending to the store.
+
+**Hard blocks (push is refused):**
+- Sell price < supplier cost → selling at a loss
+- Sell price = $0 while cost > $0 → giving product away for free
+- All variants have zero stock → nothing to fulfill
+
+**Soft warnings (push proceeds, warnings in response):**
+- Margin < 10% → low profit
+- Total inventory < 5 → may sell out fast
+- Min sell price < $1 → suspiciously low
+
+**When blocked:** Show the user the EXACT figures from the error (e.g., "Variant Green costs $27.18 but is priced at $12.00 — a $15.18 loss per unit"). Then either:
+1. Fix pricing with `dsers.product.rules.reapply` (preferred), or
+2. If the user explicitly confirms they accept the risk, retry with `force_push=true`
+
+**NEVER set `force_push=true` silently.** Always explain the risk first.
+
+**Preview includes stock data:** After import, `stock_total` and per-variant `stock` are shown in the preview. Check these BEFORE pushing to avoid surprises.
+
 ### Push Options
 
 Map user intent to `push_options` (passed as `push_options_json` — a JSON string):
@@ -115,7 +186,9 @@ Map user intent to `push_options` (passed as `push_options_json` — a JSON stri
 - `price_range_before` / `price_range_after`: `{min, max}` price ranges
 - `images_before` / `images_after`: image count before and after
 - `variant_count`: total number of variants
-- `variant_preview`: first 5 variants with `{title, supplier_price, offer_price, sku}`
+- `variant_preview`: first 5 variants with `{title, supplier_price, offer_price, stock, sku}`
+- `stock_total`: total inventory across all variants (null if unavailable)
+- `stock_low_warning`: boolean — true when stock_total > 0 but < 5 units
 - `total_variants`: shown only when variant count exceeds 5
 - `requested_rules` / `effective_rules_snapshot`: rules as requested vs actually applied
 - `warnings`: array of messages — always surface these to the user
@@ -153,6 +226,7 @@ Common error patterns and recommended actions:
 | Store not found | Call dsers.store.discover to list valid store names |
 | Accio URL could not be parsed | Accio URL must contain productId param — e.g. accio.com/c/...?productId=xxx&ds=aliexpress.com |
 | Invalid product URL | URL must be aliexpress.com/item/NUMBERS.html, alibaba.com/product-detail/xxx.html, or a valid Accio product link |
+| Push blocked by safety check | Show user the exact risk; fix pricing rules or get explicit user confirmation before using force_push=true |
 
 Never expose raw API error bodies to the user. Summarize using the structured error fields above.
 

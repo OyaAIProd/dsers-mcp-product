@@ -2,11 +2,26 @@ import { randomUUID } from "node:crypto";
 import type { ImportProvider } from "./provider.js";
 import type { JobStore } from "./job-store.js";
 import { normalizePushOptions } from "./push-options.js";
+import { validatePushSafety } from "./push-guard.js";
 import { resolveSourceUrl } from "./resolver.js";
 import { applyRules, normalizeRules } from "./rules.js";
 
 function utcNow(): string {
   return new Date().toISOString();
+}
+
+function sumVariantStock(variants?: any[]): number | null {
+  if (!Array.isArray(variants) || !variants.length) return null;
+  let total = 0;
+  let any = false;
+  for (const v of variants) {
+    const s = v?.stock;
+    if (s != null && !isNaN(Number(s))) {
+      total += Number(s);
+      any = true;
+    }
+  }
+  return any ? total : null;
 }
 
 function priceRange(draft: Record<string, any>): {
@@ -421,6 +436,17 @@ export class ImportFlowService {
       throw new Error(pushOptionCheck.errors.join("; "));
     }
     const effectivePushOptions = pushOptionCheck.effective_push_options ?? {};
+    const forcePush = Boolean(
+      payload.force_push ?? effectivePushOptions.force_push,
+    );
+
+    const safety = validatePushSafety(job.draft, job.original_draft);
+    if (!forcePush && safety.blocked.length) {
+      throw new Error(
+        `Push blocked by safety check:\n${safety.blocked.join("\n")}\n` +
+        "To override, set force_push=true after confirming the risk with the user.",
+      );
+    }
 
     const result = await this.provider.commitCandidate(
       job.provider_state,
@@ -448,6 +474,7 @@ export class ImportFlowService {
       push_options_applied: result.push_options_applied ?? effectivePushOptions,
       job_summary: result.summary ?? {},
       warnings: [
+        ...(safety.warnings ?? []),
         ...(pushOptionCheck.warnings ?? []),
         ...(result.warnings ?? []),
       ],
@@ -623,11 +650,18 @@ export class ImportFlowService {
       warnings: job.warnings ?? [],
     };
 
+    const stockTotal = final?.total_inventory ?? sumVariantStock(final?.variants);
+    if (stockTotal != null) {
+      preview.stock_total = stockTotal;
+      preview.stock_low_warning = stockTotal > 0 && stockTotal < 5;
+    }
+
     if (final?.variants?.length) {
       preview.variant_preview = final.variants.map((v: any) => ({
         title: v.title,
         supplier_price: v.supplier_price,
         offer_price: v.offer_price,
+        stock: v.stock ?? null,
         sku: v.sku,
       }));
     }

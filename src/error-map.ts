@@ -15,19 +15,29 @@ const DSERS_REASON_MAP: Record<string, AgentError> = {
       "Ask the user to log into DSers, go to Settings > Linked Stores, and re-authorize the store. Then retry the push.",
   },
   TOKEN_EXPIRED: {
-    summary: "Session expired during request",
-    cause: "The DSers authentication token expired mid-session and automatic refresh failed.",
-    action: "Retry the same operation. If it fails again, ask the user to verify their DSers credentials.",
+    summary: "DSers session expired during request",
+    cause:
+      "The session token expired while making an API call. Sessions last about 6 hours. " +
+      "This is normal and not a user error.",
+    action:
+      "Tell the user their DSers session has expired and ask them to run " +
+      "'npx @lofder/dsers-mcp-product login' to refresh. After re-login, retry the failed operation.",
   },
   TOKEN_NOT_FOUND: {
-    summary: "Authentication session lost",
-    cause: "The server could not establish a valid session with DSers.",
-    action: "Retry the operation. If it persists, ask the user to check their DSers email and password.",
+    summary: "DSers session not found",
+    cause:
+      "The server has no valid session. The user may not have logged in, or the session was cleared.",
+    action:
+      "Ask the user to run 'npx @lofder/dsers-mcp-product login' in their terminal. " +
+      "This opens the DSers website — they log in there, password never touches this tool.",
   },
   UNAUTHORIZED: {
-    summary: "Not authorized",
-    cause: "The DSers account credentials are invalid or the session has been invalidated.",
-    action: "Ask the user to verify their DSers email and password, then retry.",
+    summary: "DSers authorization failed",
+    cause:
+      "The session is invalid or the DSers account has been locked/deactivated.",
+    action:
+      "Ask the user to run 'npx @lofder/dsers-mcp-product login' to re-authenticate. " +
+      "If login keeps failing, the user should check their DSers account status at dsers.com.",
   },
   LOGIN_ERROR_TOO_MANY: {
     summary: "Too many failed login attempts",
@@ -75,15 +85,33 @@ const DSERS_REASON_MAP: Record<string, AgentError> = {
 
 const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
   [
-    /credentials not found/i,
+    /credentials not configured/i,
     {
       summary: "DSers credentials not configured",
-      cause: "No DSers email/password was provided for authentication.",
+      cause:
+        "No valid DSers session found. The user has never run the login command, or has logged out. " +
+        "You (the agent) cannot call any DSers tool until the user authenticates.",
       action:
-        "The user needs to configure DSers credentials. Methods: " +
-        "(1) Smithery config form, (2) HTTP headers x-dsers-email + x-dsers-password, " +
-        "(3) Environment variables DSERS_EMAIL + DSERS_PASSWORD, " +
-        "(4) MCP client config env block.",
+        "STOP all DSers operations. Tell the user in plain language: " +
+        "'I need you to log in to DSers first. Please open your terminal and run: " +
+        "npx @lofder/dsers-mcp-product login — this will open the DSers website in your browser. " +
+        "You log in there directly, your password never passes through me. Takes about 30 seconds.' " +
+        "Wait for the user to confirm login is done, then retry. " +
+        "If the user is on a headless server (no browser), suggest setting DSERS_EMAIL and DSERS_PASSWORD env vars.",
+    },
+  ],
+  [
+    /session expired|session.*(invalid|lost)/i,
+    {
+      summary: "DSers session expired",
+      cause:
+        "The saved session token has expired (sessions last about 6 hours). " +
+        "This is normal and expected — not a bug or user error.",
+      action:
+        "Tell the user: 'Your DSers login has expired — this happens every few hours for security. " +
+        "Could you run npx @lofder/dsers-mcp-product login again? It only takes a moment.' " +
+        "If the user was in the middle of a workflow (e.g., already imported but not pushed), " +
+        "reassure them that the import data is still saved and they can continue after re-login.",
     },
   ],
   [
@@ -179,6 +207,18 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
     },
   ],
   [
+    /Push blocked by safety check/i,
+    {
+      summary: "Push blocked — pricing or stock safety issue detected",
+      cause: "$$RAW$$",
+      action:
+        "STOP and show the user the EXACT issue above in plain language. " +
+        "Then either: (1) fix the pricing rules with dsers.product.rules.reapply, or " +
+        "(2) if the user explicitly confirms they understand the risk, retry with force_push=true. " +
+        "NEVER set force_push silently — you must get user confirmation first.",
+    },
+  ],
+  [
     /Could not push the product/i,
     {
       summary: "Push to store failed",
@@ -209,11 +249,13 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
     },
   ],
   [
-    /Login HTTP/i,
+    /Login HTTP|login failed/i,
     {
       summary: "DSers login failed",
-      cause: "The DSers API rejected the login request (wrong email/password or account issue).",
-      action: "Ask the user to verify their DSers email and password are correct.",
+      cause: "The DSers API rejected the login request (wrong credentials or account issue).",
+      action:
+        "Ask the user to run 'npx @lofder/dsers-mcp-product login' to re-authenticate via browser. " +
+        "If using env vars, verify DSERS_EMAIL and DSERS_PASSWORD are correct.",
     },
   ],
   [
@@ -277,9 +319,10 @@ export function formatErrorForAgent(err: any): string {
   }
 
   if (mapped) {
+    const cause = mapped.cause === "$$RAW$$" ? rawMessage : mapped.cause;
     const parts = [
       `Error: ${mapped.summary}`,
-      `Cause: ${mapped.cause}`,
+      `Cause: ${cause}`,
       `Action: ${mapped.action}`,
     ];
     if (reason) parts.push(`DSers reason code: ${reason}`);

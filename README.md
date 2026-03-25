@@ -1,4 +1,4 @@
-# DSers MCP Product — Automate Dropshipping AI tools/AliExpress to Shopify & Wix Import - 我在想一个简便的方式改掉用户名密码的形式，去找token不太友好
+# DSers MCP Product — Automate Dropshipping AI tools/AliExpress to Shopify & Wix Import
 
 [![Smithery](https://smithery.ai/badge/@dsersx/product-mcp)](https://smithery.ai/server/@dsersx/product-mcp)
 [![npm](https://img.shields.io/npm/v/@lofder/dsers-mcp-product)](https://www.npmjs.com/package/@lofder/dsers-mcp-product)
@@ -61,13 +61,34 @@ This works for both AliExpress and Alibaba products found on Accio.
 | [SKILL.md](SKILL.md) | AI agent instruction file — workflow, rules, push options, error handling |
 | [SKILL-CN.md](SKILL-CN.md) | Chinese human-readable guide for SKILL.md |
 
-### Install via npm
+### Quick Start
+
+**Step 1: Log in (one time — opens your browser)**
 
 ```bash
-npx @lofder/dsers-mcp-product
+npx @lofder/dsers-mcp-product login
 ```
 
-Set environment variables `DSERS_EMAIL` and `DSERS_PASSWORD` before running, or add to your MCP client config:
+A browser window opens to the official DSers login page. You log in on DSers's own website — your password **never** passes through this tool. After login, the session is encrypted and saved locally.
+
+**Step 2: Add to your MCP client (no credentials needed)**
+
+```json
+{
+  "mcpServers": {
+    "dsers-mcp-product": {
+      "command": "npx",
+      "args": ["-y", "@lofder/dsers-mcp-product"]
+    }
+  }
+}
+```
+
+That's it. No passwords in config files.
+
+**Alternative: environment variables (legacy)**
+
+If you prefer, you can still use environment variables:
 
 ```json
 {
@@ -165,21 +186,70 @@ Pre-built workflow templates that MCP clients can present to users:
 | `dsers.workflow.multi-push` | Push one product to all connected stores |
 | `dsers.workflow.seo-optimize` | Import, AI-rewrite title & description for SEO, then push |
 
-### Credentials
+### Authentication
 
-The server supports two credential sources (checked in order):
+This tool **never asks for or handles your DSers password**. Authentication works by opening the official DSers login page in your browser and capturing the session cookie after you log in yourself.
 
-1. **HTTP headers** `x-dsers-email` / `x-dsers-password` — used by Smithery and direct HTTP connections
-2. **Environment variables** `DSERS_EMAIL` / `DSERS_PASSWORD` — used by local stdio (Cursor, Claude Desktop)
+#### How it works
 
-See [USAGE.md](USAGE.md) for setup details per connection method.
+```
+You run "login" command
+    ↓
+Browser opens https://accounts.dsers.com/accounts/login
+    ↓
+You log in on DSers's own website (password stays with DSers)
+    ↓
+Tool captures the session cookie via Chrome DevTools Protocol
+    ↓
+Session token encrypted with AES-256-GCM, saved to ~/.dsers-mcp/credentials
+    ↓
+MCP server reads the encrypted token — no password needed in config
+```
+
+#### Login
+
+```bash
+npx @lofder/dsers-mcp-product login
+```
+
+The tool auto-detects Chromium browsers (Chrome, Edge, Brave, etc.) on macOS, Linux, and Windows. On macOS without Chromium, it falls back to Safari via AppleScript.
+
+#### Session lifetime
+
+Sessions last about **6 hours**. When expired, the AI agent receives a structured error message guiding it to tell you: *"Your DSers session expired — please run `npx @lofder/dsers-mcp-product login` again."*
+
+#### Switch accounts
+
+```bash
+npx @lofder/dsers-mcp-product logout   # clear current session
+npx @lofder/dsers-mcp-product login    # log in with a different account
+```
+
+#### Credential resolution order
+
+The server checks credentials in this order:
+
+| Priority | Source | When to use |
+|----------|--------|-------------|
+| 1 | HTTP headers (`x-dsers-email` / `x-dsers-password`) | Smithery hosted — auto-injected |
+| 2 | `DSERS_TOKEN` env var | Programmatic / CI usage |
+| 3 | Encrypted local file (`~/.dsers-mcp/credentials`) | Normal usage via `login` command |
+| 4 | `DSERS_EMAIL` + `DSERS_PASSWORD` env vars | Legacy / headless servers |
+
+For most users, the `login` command (priority 3) is all you need. No passwords in config files, no env vars to manage.
+
+#### Security notes
+
+- Password is entered only on the official DSers website — never captured by this tool.
+- Session token stored with AES-256-GCM encryption, file permission `0600` (owner-only).
+- Tampering with the credentials file returns null (integrity check via GCM auth tag).
 
 ### Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DSERS_EMAIL` | Yes* | DSers account email (*or provide via HTTP header) |
-| `DSERS_PASSWORD` | Yes* | DSers account password (*or provide via HTTP header) |
+| `DSERS_EMAIL` | No* | DSers account email (*not needed if using `login` command) |
+| `DSERS_PASSWORD` | No* | DSers account password (*not needed if using `login` command) |
 | `DSERS_ENV` | No | `production` (default) or `test` |
 | `DSERS_BASE_URL` | No | Override API base URL |
 | `IMPORT_MCP_STATE_DIR` | No | Job state directory (default: `.state`) |
@@ -198,7 +268,7 @@ MIT
 
 ## 中文
 
-**DSers MCP Product** 是一个开源的 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) 服务器，让 AI Agent 自动完成 DSers 的整个商品导入流程 —— 从速卖通 / Alibaba / 1688 / [Accio.com](https://www.accio.com/) 商品链接到 Shopify 或 Wix 店铺上架。批量导入、批量编辑变体、清理速卖通标题、应用定价规则、推送到多个店铺 —— 只需一句话给你的 AI agent。 - 我在想一个简便的方式改掉用户名密码的形式，去找token不太友好
+**DSers MCP Product** 是一个开源的 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) 服务器，让 AI Agent 自动完成 DSers 的整个商品导入流程 —— 从速卖通 / Alibaba / 1688 / [Accio.com](https://www.accio.com/) 商品链接到 Shopify 或 Wix 店铺上架。批量导入、批量编辑变体、清理速卖通标题、应用定价规则、推送到多个店铺 —— 只需一句话给你的 AI agent。
 
 服务已托管在 [Vercel](https://dsers-mcp-product.vercel.app/api/mcp)，并发布到多个平台：
 
@@ -244,13 +314,34 @@ Accio 上搜出来的速卖通和阿里巴巴商品都能用。
 | [SKILL.md](SKILL.md) | AI agent 指令文件 — 工作流、规则、推送选项、错误处理 |
 | [SKILL-CN.md](SKILL-CN.md) | SKILL.md 的中文说明 |
 
-### 通过 npm 安装
+### 快速开始
+
+**第 1 步：登录（一次性操作，会打开浏览器）**
 
 ```bash
-npx @lofder/dsers-mcp-product
+npx @lofder/dsers-mcp-product login
 ```
 
-运行前设置环境变量 `DSERS_EMAIL` 和 `DSERS_PASSWORD`，或在 MCP 客户端配置中添加：
+浏览器会自动打开 DSers 官方登录页。你在 DSers 自己的网站上登录 —— 密码**完全不经过**本工具。登录后 session 加密保存到本地。
+
+**第 2 步：添加到你的 MCP 客户端（不需要密码）**
+
+```json
+{
+  "mcpServers": {
+    "dsers-mcp-product": {
+      "command": "npx",
+      "args": ["-y", "@lofder/dsers-mcp-product"]
+    }
+  }
+}
+```
+
+搞定。配置文件里不需要任何密码。
+
+**备选方式：环境变量（旧方式）**
+
+也可以用环境变量：
 
 ```json
 {
@@ -321,6 +412,62 @@ MCP 客户端可直接展示给用户的工作流模板：
 | `dsers.workflow.bulk-import` | 批量导入 + 统一定价倍率 |
 | `dsers.workflow.multi-push` | 一个商品推送到所有店铺 |
 | `dsers.workflow.seo-optimize` | 导入后 AI 重写标题和描述做 SEO 优化，再推送 |
+
+### 授权认证
+
+本工具**绝不要求或接触你的 DSers 密码**。认证方式是在你的浏览器中打开 DSers 官方登录页，你自己登录后工具抓取 session cookie。
+
+#### 流程
+
+```
+运行 login 命令
+    ↓
+浏览器打开 https://accounts.dsers.com/accounts/login
+    ↓
+你在 DSers 官网登录（密码只给 DSers）
+    ↓
+工具通过 Chrome DevTools Protocol 抓取 session cookie
+    ↓
+Session token 用 AES-256-GCM 加密，保存到 ~/.dsers-mcp/credentials
+    ↓
+MCP 服务端读取加密 token —— 配置里不需要密码
+```
+
+#### 登录
+
+```bash
+npx @lofder/dsers-mcp-product login
+```
+
+工具自动检测 Chromium 系浏览器（Chrome、Edge、Brave 等），支持 macOS、Linux、Windows。macOS 没有 Chromium 时会降级用 Safari（AppleScript）。
+
+#### Session 有效期
+
+大约 **6 小时**。过期后 AI agent 会收到结构化错误提示，引导它告诉你：*"你的 DSers 登录已过期，请重新运行 `npx @lofder/dsers-mcp-product login`"*。
+
+#### 切换账号
+
+```bash
+npx @lofder/dsers-mcp-product logout   # 清除当前 session
+npx @lofder/dsers-mcp-product login    # 用另一个账号登录
+```
+
+#### 凭据优先级
+
+| 优先级 | 来源 | 适用场景 |
+|--------|------|----------|
+| 1 | HTTP headers (`x-dsers-email` / `x-dsers-password`) | Smithery 托管 — 自动注入 |
+| 2 | `DSERS_TOKEN` 环境变量 | 编程/CI 场景 |
+| 3 | 本地加密文件 (`~/.dsers-mcp/credentials`) | 普通用法，`login` 命令 |
+| 4 | `DSERS_EMAIL` + `DSERS_PASSWORD` 环境变量 | 旧方式 / 无浏览器服务器 |
+
+大多数用户用 `login` 命令（优先级 3）就够了。配置文件不需要密码，不需要管环境变量。
+
+#### 安全说明
+
+- 密码只在 DSers 官网输入，本工具不会截获。
+- Session token 用 AES-256-GCM 加密存储，文件权限 `0600`（仅所有者可读）。
+- 篡改凭据文件会返回 null（GCM auth tag 完整性校验）。
 
 ### 其他版本
 

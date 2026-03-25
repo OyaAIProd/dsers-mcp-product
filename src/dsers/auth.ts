@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, chmodSync } from "node:fs";
 import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 import type { DSersConfig } from "./config.js";
@@ -19,6 +19,11 @@ export class DSersAuth {
 
   constructor(config: DSersConfig) {
     this.config = config;
+    if (config.sessionId) {
+      this.sessionId = config.sessionId;
+      this.state = config.sessionState ?? "";
+      this.fetchedAt = Date.now();
+    }
   }
 
   async getSession(): Promise<[string, string]> {
@@ -38,11 +43,10 @@ export class DSersAuth {
   async login(): Promise<[string, string]> {
     if (!this.config.email || !this.config.password) {
       throw new Error(
-        "DSers credentials not found. Provide them through one of:\n" +
-        "1. Smithery config form (dsers_email / dsers_password fields)\n" +
-        "2. HTTP headers: x-dsers-email, x-dsers-password\n" +
-        "3. Environment variables: DSERS_EMAIL, DSERS_PASSWORD\n" +
-        "4. MCP client config env block (Cursor .cursor/mcp.json, Claude Desktop config)",
+        "DSers credentials not configured.\n" +
+        "Recommended: run 'npx @lofder/dsers-mcp-product login' to authenticate via browser.\n" +
+        "Alternative: set DSERS_EMAIL and DSERS_PASSWORD environment variables.\n" +
+        "For Smithery: credentials are provided via the config form automatically.",
       );
     }
 
@@ -94,6 +98,7 @@ export class DSersAuth {
   }
 
   private writeCache(): void {
+    if (this.config.sessionId) return;
     try {
       const p = this.config.sessionFile;
       mkdirSync(dirname(p), { recursive: true });
@@ -102,7 +107,8 @@ export class DSersAuth {
         state: this.state ?? "",
         ts: this.fetchedAt,
       };
-      writeFileSync(p, JSON.stringify(payload), "utf-8");
+      writeFileSync(p, JSON.stringify(payload), { encoding: "utf-8", mode: 0o600 });
+      try { chmodSync(p, 0o600); } catch { /* Windows */ }
     } catch (_writeErr: unknown) { /* file write failed — continue with in-memory session only */ }
   }
 }

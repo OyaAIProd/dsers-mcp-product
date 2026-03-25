@@ -6,6 +6,58 @@
 
 让 AI agent 通过 DSers 平台完成商品导入全流程：从速卖通 / Alibaba / 1688 / Accio.com 链接到 Shopify 或 Wix 店铺上架。
 
+## 认证方式
+
+**推荐方式：浏览器登录（密码完全不经过本工具）**
+
+```bash
+npx @lofder/dsers-mcp-product login
+```
+
+运行后自动打开浏览器到 DSers 官方登录页 (`accounts.dsers.com`)，用户登录即可。session 加密保存到 `~/.dsers-mcp/credentials`，之后所有工具自动可用。
+
+Session 有效期约 **6 小时**，过期后工具会返回错误提示。
+
+**凭据来源优先级：**
+1. HTTP headers `x-dsers-email` / `x-dsers-password` — Smithery 自动设置
+2. 环境变量 `DSERS_TOKEN` — 加密 token 字符串
+3. 本地凭据文件 `~/.dsers-mcp/credentials` — login 命令生成（推荐）
+4. 环境变量 `DSERS_EMAIL` / `DSERS_PASSWORD` — 旧方式，仍支持
+
+### Agent 认证决策树
+
+以下是你（Agent）遇到认证问题时的处理方式：
+
+**场景 1："DSers credentials not configured"**
+- 含义：用户没有运行过 login，或者已经 logout。
+- 你应该：告诉用户在终端运行 `npx @lofder/dsers-mcp-product login`。解释："这会打开 DSers 官网让你登录，密码不经过本工具，大概 30 秒搞定。"
+- 用户确认登录完成后，重试工具调用。
+
+**场景 2："DSers session expired"**
+- 含义：Session 过期了（约 6 小时后）。
+- 你应该：告诉用户："DSers 登录过期了，安全起见每隔几个小时会过期。麻烦再跑一下 `npx @lofder/dsers-mcp-product login`，很快的。"
+- 如果用户正在操作中（比如已经导入了还没推送），告诉他导入的数据还在，认证刷新后可以继续。
+
+**场景 3：用户想换 DSers 账号**
+- 你应该：让用户先运行 `npx @lofder/dsers-mcp-product logout`（清除旧 session），再运行 `login`（用新账号登录）。
+
+**场景 4：Login 命令失败**
+- 浏览器打不开：工具会自动尝试 Safari（macOS）或终端输入。
+- 终端输入失败：密码输错了，最多重试 3 次。
+- 全部失败：建议用户设置 `DSERS_EMAIL` + `DSERS_PASSWORD` 环境变量作为备选。
+
+**场景 5：主动检查认证**
+- 在任何工作流开始前先调用 `dsers.store.discover`。如果成功说明认证有效，如果报错先处理认证再继续。
+- 不要在认证失败的情况下尝试导入或推送。
+
+### 你（Agent）的行为准则
+
+- 绝不要让用户在聊天里贴密码
+- 绝不要把明文密码写到配置文件里作为主推方式
+- 遇到认证错误不要自动重试，停下来让用户重新认证
+- 不要假设用户知道什么是 MCP、CLI、环境变量 — 用简单的话解释
+- 给终端命令时一定给出可以直接复制粘贴的完整命令
+
 ## 工作流程
 
 1. `dsers.store.discover` — 查询可用店铺、配送方案、支持的规则
@@ -72,6 +124,28 @@
 
 用 `dsers.rules.validate` 可以在导入前检查规则。
 
+### 推送前安全检查
+
+`dsers.store.push` 会在推送前自动校验价格和库存。
+
+**硬拦截（拒绝推送）：**
+- 售价 < 成本价 → 亏本销售
+- 售价为 $0 但成本 > $0 → 白送商品
+- 所有变体库存都为 0 → 无法履约
+
+**软警告（继续推送，但返回警告）：**
+- 利润率 < 10% → 利润过低
+- 总库存 < 5 → 可能很快售罄
+- 最低售价 < $1 → 异常低价
+
+**被拦截时：** 把错误中的具体数字展示给用户（如："变体 Green 成本 $27.18，定价只有 $12.00，每件亏 $15.18"）。然后：
+1. 用 `dsers.product.rules.reapply` 修改定价规则（推荐），或
+2. 如果用户明确确认接受风险，使用 `force_push=true` 重试
+
+**禁止静默设置 `force_push=true`。** 必须先向用户解释风险。
+
+**预览包含库存信息：** 导入后，`stock_total` 和每个变体的 `stock` 会显示在预览中。推送前检查这些数据可以提前发现问题。
+
 ### 推送选项
 
 用户意图到 `push_options`（作为 `push_options_json` JSON 字符串传递）的映射：
@@ -96,7 +170,9 @@
 - `price_range_before` / `price_range_after`：`{min, max}` 价格区间
 - `images_before` / `images_after`：图片数量
 - `variant_count`：变体总数
-- `variant_preview`：前 5 个变体的 `{title, supplier_price, offer_price, sku}`
+- `variant_preview`：前 5 个变体的 `{title, supplier_price, offer_price, stock, sku}`
+- `stock_total`：所有变体的总库存（无数据时为 null）
+- `stock_low_warning`：布尔值 — 库存 > 0 但 < 5 时为 true
 - `warnings`：提示信息数组 — 一定要展示给用户
 
 ### dsers.store.push
@@ -116,6 +192,7 @@
 - **Accio 链接解析失败**：确保 URL 包含 `productId` 参数，例如 `accio.com/c/...?productId=xxx&ds=aliexpress.com`。
 - **导入失败**：检查 URL 格式。速卖通捆绑商品链接不支持。1688/Alibaba 需要 DSers 账户启用了对应来源。Accio 链接需要包含 productId 参数。
 - **"shipping profile not found"**：一般不会出现（自动发现）。如果出现，调用 `dsers.store.discover` 查看可用方案，然后重试时指定 `shipping_profile_name`。
+- **推送被安全检查拦截**：展示具体的风险数据给用户；修复定价规则或获得用户明确确认后使用 `force_push=true`。
 - **推送返回 `failed`**：检查 `warnings` 数组。常见原因：导入列表中的商品在准备和推送之间被删除。
 - **未知 target_store**：错误消息会列出可用店铺。用 `dsers.store.discover` 返回的 store_ref 或 display_name。
 - 每个响应的 `warnings` 一定要展示给用户。

@@ -55,9 +55,9 @@ export default function createServer(context: ServerContext<DsersConfig>) {
 export function createSandboxServer() {
   return createServer({
     config: {
-      dsers_email: "sandbox@example.com",
-      dsers_password: "sandbox",
-      dsers_env: "production",
+      dsers_email: process.env.DSERS_EMAIL ?? "",
+      dsers_password: process.env.DSERS_PASSWORD ?? "",
+      dsers_env: process.env.DSERS_ENV ?? "production",
     },
   } as ServerContext<DsersConfig>);
 }

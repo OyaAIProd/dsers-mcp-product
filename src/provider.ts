@@ -1309,6 +1309,11 @@ export class PrivateDsersProvider implements ImportProvider {
     const minPriceKey = firstMatchingKey(item, ["minPrice"]);
     const maxPriceKey = firstMatchingKey(item, ["maxPrice"]);
     const supplyKey = firstMatchingKey(item, ["supply"]);
+    const totalInventoryKey = firstMatchingKey(item, [
+      "totalInventory",
+      "totalStock",
+      "inventoryQuantity",
+    ]);
 
     if (!titleKey)
       warnings.push(
@@ -1327,12 +1332,17 @@ export class PrivateDsersProvider implements ImportProvider {
         "Tag edits are preview-only because the DSers import list API does not support direct tag writes for this item type.",
       );
 
+    const totalInventory = totalInventoryKey
+      ? asFloat(item[totalInventoryKey])
+      : null;
+
     const draft = {
       title: String(item[titleKey!] ?? ""),
       description_html: String(item[descriptionKey!] ?? ""),
       images,
       tags: rawTagsKey ? [...(item[rawTagsKey] ?? [])] : [],
       variants,
+      total_inventory: totalInventory,
     };
     const fieldMap: Record<string, any> = {
       title_key: titleKey,
@@ -1775,6 +1785,15 @@ function extractVariants(
         ),
         offer_price: asFloat(
           firstPresent(raw, ["sellPrice", "salePrice", "price"]),
+        ),
+        stock: asFloat(
+          firstPresent(raw, [
+            "stock",
+            "quantity",
+            "inventory",
+            "availableStock",
+            "skuStock",
+          ]),
         ),
         sku: String(
           firstPresent(raw, [
