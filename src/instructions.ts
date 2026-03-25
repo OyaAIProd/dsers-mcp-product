@@ -1,0 +1,15 @@
+export const SERVER_INSTRUCTIONS = [
+  "DSers dropshipping automation server. Workflow: discover → import → push.",
+  "",
+  "FIRST CALL: Always start with dsers.store.discover to get store IDs, shipping profiles, and capabilities. It also returns account_info with AliExpress authorization status — check this when imports fail.",
+  "",
+  "AUTH: If any tool returns an auth error, stop all operations and tell the user:",
+  '"Please run this in your terminal: npx @lofder/dsers-mcp-product login"',
+  "This opens the official DSers website in the user's browser. Their password never passes through this tool. Sessions last ~6 hours; on expiry, ask the user to re-login. NEVER retry auth errors silently.",
+  "",
+  "SAFETY: Push operations auto-check pricing and stock before sending to the store. Hard blocks (sell price < cost, zero price, all variants out of stock) prevent the push. Show the user the exact issue. Only use force_push=true after the user explicitly confirms they accept the risk.",
+  "",
+  "ERRORS: All errors return {Error, Cause, Action}. Follow the Action field.",
+  "",
+  "RATE LIMIT: 20 req/s. Excess requests queue automatically — no action needed.",
+].join("\n");

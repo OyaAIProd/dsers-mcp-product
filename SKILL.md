@@ -148,7 +148,7 @@ Use `dsers.rules.validate` to check rules before importing — it returns `effec
 - Min sell price < $1 → suspiciously low
 
 **When blocked:** Show the user the EXACT figures from the error (e.g., "Variant Green costs $27.18 but is priced at $12.00 — a $15.18 loss per unit"). Then either:
-1. Fix pricing with `dsers.product.rules.reapply` (preferred), or
+1. Fix pricing by calling `dsers.product.import` with the same `job_id` + updated `rules_json` (re-apply mode, no `source_url` needed), or
 2. If the user explicitly confirms they accept the risk, retry with `force_push=true`
 
 **NEVER set `force_push=true` silently.** Always explain the risk first.

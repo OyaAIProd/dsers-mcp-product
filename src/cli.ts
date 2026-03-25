@@ -6,6 +6,7 @@ import { buildProvider } from "./provider.js";
 import { ImportFlowService } from "./service.js";
 import { FileJobStore } from "./job-store.js";
 import { registerTools } from "./tools.js";
+import { SERVER_INSTRUCTIONS } from "./instructions.js";
 import { resolve } from "node:path";
 import {
   findChromiumBrowser,
@@ -154,10 +155,10 @@ async function startServer() {
   const store = new FileJobStore(STATE_DIR);
   const service = new ImportFlowService(provider, store);
 
-  const server = new McpServer({
-    name: "dsers-mcp-product",
-    version: "1.1.2",
-  });
+  const server = new McpServer(
+    { name: "dsers-mcp-product", version: "1.1.3" },
+    { instructions: SERVER_INSTRUCTIONS },
+  );
 
   registerTools(server, service);
 

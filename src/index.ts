@@ -7,6 +7,7 @@ import { buildProvider } from "./provider.js";
 import { ImportFlowService } from "./service.js";
 import { FileJobStore } from "./job-store.js";
 import { registerTools } from "./tools.js";
+import { SERVER_INSTRUCTIONS } from "./instructions.js";
 
 const STATE_DIR =
   process.env.IMPORT_MCP_STATE_DIR ??
@@ -42,10 +43,10 @@ export default function createServer(context: ServerContext<DsersConfig>) {
   const store = new FileJobStore(STATE_DIR);
   const service = new ImportFlowService(provider, store);
 
-  const server = new McpServer({
-    name: "dsers-mcp-product",
-    version: "1.0.0",
-  });
+  const server = new McpServer(
+    { name: "dsers-mcp-product", version: "1.1.3" },
+    { instructions: SERVER_INSTRUCTIONS },
+  );
 
   registerTools(server, service);
 

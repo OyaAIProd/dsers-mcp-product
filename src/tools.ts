@@ -43,7 +43,7 @@ export function registerTools(
       description:
         "Retrieve available stores, supported rule families (pricing, content, images), push options, and visibility modes for the connected DSers account. " +
         "Call this first before any other tool — the response contains store IDs, shipping profiles, and configuration constraints needed by all subsequent operations. " +
-        "Returns: provider_label, source_support (aliexpress/alibaba), stores (each with store_ref, display_name, platform, shipping_profiles), rule_families, push_options, notes.",
+        "Returns: provider_label, source_support (aliexpress/alibaba), stores (each with store_ref, display_name, platform, shipping_profiles), rule_families, push_options, notes, account_info (includes AliExpress authorization status and plan limits — check this when imports fail).",
       inputSchema: {
         target_store: z
           .string()
@@ -118,7 +118,7 @@ export function registerTools(
         "Single mode: provide source_url. Batch mode: provide source_urls_json with an array of URLs or objects. " +
         "Re-apply mode: provide job_id + rules_json to update rules on an existing import without re-importing from the supplier. " +
         "Each successful import returns a job_id needed for dsers.product.preview, dsers.product.visibility, and dsers.store.push. " +
-        "Returns: job_id, status, title_before/after, description_html_snippet, price_range_before/after, images_before/after, image_urls, variant_count, variant_preview (all), warnings.",
+        "Returns: job_id, status, title_before/after, description_html_snippet, price_range_before/after, images_before/after, image_urls, variant_count, variant_preview (all), stock_total, stock_low_warning, warnings.",
       inputSchema: {
         job_id: z
           .string()

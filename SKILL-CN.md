@@ -139,7 +139,7 @@ Session 有效期约 **6 小时**，过期后工具会返回错误提示。
 - 最低售价 < $1 → 异常低价
 
 **被拦截时：** 把错误中的具体数字展示给用户（如："变体 Green 成本 $27.18，定价只有 $12.00，每件亏 $15.18"）。然后：
-1. 用 `dsers.product.rules.reapply` 修改定价规则（推荐），或
+1. 用 `dsers.product.import` 传入同一个 `job_id` + 更新后的 `rules_json` 重新应用规则（不需要 `source_url`），或
 2. 如果用户明确确认接受风险，使用 `force_push=true` 重试
 
 **禁止静默设置 `force_push=true`。** 必须先向用户解释风险。
