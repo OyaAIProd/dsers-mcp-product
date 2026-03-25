@@ -4,7 +4,7 @@
 
 ## 这个 Skill 做什么
 
-让 AI agent 通过 DSers 平台完成商品导入全流程：从速卖通 / Alibaba / 1688 / Accio.com 链接到 Shopify 或 Wix 店铺上架。
+让 AI agent 通过 DSers 平台完成商品导入全流程：从速卖通 / Alibaba / Accio.com 链接到 Shopify 或 Wix 店铺上架。
 
 ## 认证方式
 
@@ -83,13 +83,13 @@ Session 有效期约 **6 小时**，过期后工具会返回错误提示。
 - `accio.com/d/{id}?dataSource=Alibaba.com` — 商品详情页
 - 任意包含 `productId` 参数的 Accio 页面 URL
 
-`ds` 包含 `aliexpress` → 走速卖通导入；`ds` 包含 `alibaba` 或 `1688` → 走阿里巴巴导入；缺少 `ds` 且 `productId` 为 5+ 位数字 → 默认走速卖通。
+`ds` 包含 `aliexpress` → 走速卖通导入；`ds` 包含 `alibaba` → 走阿里巴巴导入；缺少 `ds` 且 `productId` 为 5+ 位数字 → 默认走速卖通。
 
 ### 单条 vs 批量
 
 - 用户给一个链接 → 用 `source_url`
 - 用户给多个链接 → 用 `source_urls_json`（JSON 数组字符串），每个 URL 独立处理，失败不影响其他
-- 混合来源（速卖通 + 1688 + Alibaba + Accio）可以在同一次调用中处理
+- 混合来源（速卖通 + Alibaba + Accio）可以在同一次调用中处理
 
 ### 推送模式
 
@@ -190,7 +190,7 @@ Session 有效期约 **6 小时**，过期后工具会返回错误提示。
 ## 错误处理
 
 - **Accio 链接解析失败**：确保 URL 包含 `productId` 参数，例如 `accio.com/c/...?productId=xxx&ds=aliexpress.com`。
-- **导入失败**：检查 URL 格式。速卖通捆绑商品链接不支持。1688/Alibaba 需要 DSers 账户启用了对应来源。Accio 链接需要包含 productId 参数。
+- **导入失败**：检查 URL 格式。速卖通捆绑商品链接不支持。Alibaba 需要 DSers 账户启用了对应来源。1688 链接可以识别，但需要 DSers 账号开通 1688 来源权限。Accio 链接需要包含 productId 参数。
 - **"shipping profile not found"**：一般不会出现（自动发现）。如果出现，调用 `dsers.store.discover` 查看可用方案，然后重试时指定 `shipping_profile_name`。
 - **推送被安全检查拦截**：展示具体的风险数据给用户；修复定价规则或获得用户明确确认后使用 `force_push=true`。
 - **推送返回 `failed`**：检查 `warnings` 数组。常见原因：导入列表中的商品在准备和推送之间被删除。
@@ -208,7 +208,7 @@ dsers.store.discover → dsers.product.import(source_url, rules_json) → dsers.
 
 **批量混合来源：**
 ```
-dsers.store.discover → dsers.product.import(source_urls_json: '["ae_url", "1688_url"]') → dsers.store.push(job_ids_json: '["job1", "job2"]', target_store)
+dsers.store.discover → dsers.product.import(source_urls_json: '["ae_url", "alibaba_url"]') → dsers.store.push(job_ids_json: '["job1", "job2"]', target_store)
 ```
 
 **先预览再推送：**

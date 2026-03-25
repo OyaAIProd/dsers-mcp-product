@@ -15,7 +15,7 @@
 
 ## English
 
-**DSers MCP Product** is an open-source [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that lets AI Agents automate the entire DSers import workflow — from AliExpress / Alibaba / 1688 / [Accio.com](https://www.accio.com/) product URL to Shopify or Wix store listing. Bulk import, batch edit variants, clean AliExpress titles, apply pricing rules, and push to multiple stores — all with a single sentence to your AI agent.
+**DSers MCP Product** is an open-source [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that lets AI Agents automate the entire DSers import workflow — from AliExpress / Alibaba / [Accio.com](https://www.accio.com/) product URL to Shopify or Wix store listing. Bulk import, batch edit variants, clean AliExpress titles, apply pricing rules, and push to multiple stores — all with a single sentence to your AI agent.
 
 The server is hosted on [Vercel](https://dsers-mcp-product.vercel.app/api/mcp) and published across multiple platforms:
 
@@ -35,7 +35,7 @@ The server is hosted on [Vercel](https://dsers-mcp-product.vercel.app/api/mcp) a
 
 ### Supported product sources
 
-Works with product links from **AliExpress**, **Alibaba.com**, **1688**, and **[Accio.com](https://www.accio.com/)**. Just give your AI agent a product link from any of these platforms, and it will import the product into DSers and push it to your store.
+Works with product links from **AliExpress**, **Alibaba.com**, and **[Accio.com](https://www.accio.com/)**. Just give your AI agent a product link from any of these platforms, and it will import the product into DSers and push it to your store. (1688.com links are also recognized but require your DSers account to have 1688 source authorization enabled.)
 
 ### Accio.com — AI-powered product sourcing
 
@@ -107,6 +107,29 @@ If you prefer, you can still use environment variables:
 
 Also listed on the official [MCP Registry](https://registry.modelcontextprotocol.io/servers/io.github.lofder/dsers-mcp-product).
 
+### Authentication — Zero-Password Login
+
+Your DSers password **never touches this tool**. Here's how login works:
+
+1. You run `npx @lofder/dsers-mcp-product login`
+2. Your browser opens the official DSers login page
+3. You log in on DSers's own website, as usual
+4. The tool picks up your login session and encrypts it locally
+5. Done — from now on, the MCP server just works. No passwords in any config file.
+
+Works with Chrome, Edge, Brave, and other Chromium browsers. On Mac, Safari works too.
+
+**Sessions last about 6 hours.** When it expires, your AI agent will ask you to run `login` again — takes 10 seconds.
+
+**Switching accounts?**
+
+```bash
+npx @lofder/dsers-mcp-product logout
+npx @lofder/dsers-mcp-product login
+```
+
+> **For developers:** The server also accepts credentials via HTTP headers (Smithery auto-injects these), a `DSERS_TOKEN` env var, or the legacy `DSERS_EMAIL` + `DSERS_PASSWORD` env vars. For most users, just use `login`.
+
 ### Install via Smithery
 
 ```bash
@@ -145,7 +168,7 @@ dsers-mcp-product/
 │   ├── provider.ts           # DSers API adapter
 │   ├── rules.ts              # Rule validation & application engine
 │   ├── push-options.ts       # Push option normalization
-│   ├── resolver.ts           # URL normalization (AliExpress/Alibaba/1688/Accio)
+│   ├── resolver.ts           # URL normalization (AliExpress/Alibaba/Accio)
 │   ├── job-store.ts          # File-based job persistence
 │   └── dsers/                # Low-level DSers API wrappers
 │       ├── config.ts         # Configuration & environment
@@ -167,17 +190,17 @@ dsers-mcp-product/
 |---|------|-------|-------------|
 | 1 | `dsers.store.discover` | DSers Store & Rule Discovery | Discover stores, shipping profiles, supported rules |
 | 2 | `dsers.rules.validate` | Pricing & Content Rule Validator | Dry-run rule validation |
-| 3 | `dsers.product.import` | AliExpress / Alibaba / 1688 / Accio Import | Import from URL(s), apply rules, get preview; re-apply mode via job_id |
+| 3 | `dsers.product.import` | AliExpress / Alibaba / Accio Import | Import from URL(s), apply rules, get preview; re-apply mode via job_id |
 | 4 | `dsers.product.preview` | Import Draft Preview | Reload a saved preview |
 | 5 | `dsers.product.visibility` | Shopify / Wix Visibility Toggle | Toggle draft / published |
 | 6 | `dsers.store.push` | Push to Shopify / Wix Store | Push single/batch/multi-store |
 | 7 | `dsers.job.status` | Job Status Tracker | Check push result |
 
-All tools include MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) and return structured error messages with `{Error, Cause, Action}` for AI agent consumption. `dsers.store.discover` also returns `account_info` with AliExpress authorization status and plan limits.
+All tools return clear, structured error messages so your AI agent knows what went wrong and what to do next.
 
 ### Four Prompts
 
-Pre-built workflow templates that MCP clients can present to users:
+Ready-made workflows your AI client can use directly:
 
 | Prompt | Description |
 |--------|-------------|
@@ -185,64 +208,6 @@ Pre-built workflow templates that MCP clients can present to users:
 | `dsers.workflow.bulk-import` | Batch import with pricing multiplier |
 | `dsers.workflow.multi-push` | Push one product to all connected stores |
 | `dsers.workflow.seo-optimize` | Import, AI-rewrite title & description for SEO, then push |
-
-### Authentication
-
-This tool **never asks for or handles your DSers password**. Authentication works by opening the official DSers login page in your browser and capturing the session cookie after you log in yourself.
-
-#### How it works
-
-```
-You run "login" command
-    ↓
-Browser opens https://accounts.dsers.com/accounts/login
-    ↓
-You log in on DSers's own website (password stays with DSers)
-    ↓
-Tool captures the session cookie via Chrome DevTools Protocol
-    ↓
-Session token encrypted with AES-256-GCM, saved to ~/.dsers-mcp/credentials
-    ↓
-MCP server reads the encrypted token — no password needed in config
-```
-
-#### Login
-
-```bash
-npx @lofder/dsers-mcp-product login
-```
-
-The tool auto-detects Chromium browsers (Chrome, Edge, Brave, etc.) on macOS, Linux, and Windows. On macOS without Chromium, it falls back to Safari via AppleScript.
-
-#### Session lifetime
-
-Sessions last about **6 hours**. When expired, the AI agent receives a structured error message guiding it to tell you: *"Your DSers session expired — please run `npx @lofder/dsers-mcp-product login` again."*
-
-#### Switch accounts
-
-```bash
-npx @lofder/dsers-mcp-product logout   # clear current session
-npx @lofder/dsers-mcp-product login    # log in with a different account
-```
-
-#### Credential resolution order
-
-The server checks credentials in this order:
-
-| Priority | Source | When to use |
-|----------|--------|-------------|
-| 1 | HTTP headers (`x-dsers-email` / `x-dsers-password`) | Smithery hosted — auto-injected |
-| 2 | `DSERS_TOKEN` env var | Programmatic / CI usage |
-| 3 | Encrypted local file (`~/.dsers-mcp/credentials`) | Normal usage via `login` command |
-| 4 | `DSERS_EMAIL` + `DSERS_PASSWORD` env vars | Legacy / headless servers |
-
-For most users, the `login` command (priority 3) is all you need. No passwords in config files, no env vars to manage.
-
-#### Security notes
-
-- Password is entered only on the official DSers website — never captured by this tool.
-- Session token stored with AES-256-GCM encryption, file permission `0600` (owner-only).
-- Tampering with the credentials file returns null (integrity check via GCM auth tag).
 
 ### Environment Variables
 
@@ -268,7 +233,7 @@ MIT
 
 ## 中文
 
-**DSers MCP Product** 是一个开源的 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) 服务器，让 AI Agent 自动完成 DSers 的整个商品导入流程 —— 从速卖通 / Alibaba / 1688 / [Accio.com](https://www.accio.com/) 商品链接到 Shopify 或 Wix 店铺上架。批量导入、批量编辑变体、清理速卖通标题、应用定价规则、推送到多个店铺 —— 只需一句话给你的 AI agent。
+**DSers MCP Product** 是一个开源的 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) 服务器，让 AI Agent 自动完成 DSers 的整个商品导入流程 —— 从速卖通 / Alibaba / [Accio.com](https://www.accio.com/) 商品链接到 Shopify 或 Wix 店铺上架。批量导入、批量编辑变体、清理速卖通标题、应用定价规则、推送到多个店铺 —— 只需一句话给你的 AI agent。
 
 服务已托管在 [Vercel](https://dsers-mcp-product.vercel.app/api/mcp)，并发布到多个平台：
 
@@ -288,7 +253,7 @@ MIT
 
 ### 支持的商品来源
 
-支持 **速卖通（AliExpress）**、**Alibaba.com**、**1688** 和 **[Accio.com](https://www.accio.com/)** 的商品链接。把任意平台的商品链接丢给你的 AI 助手，它就能自动导入 DSers 并上架到你的店铺。
+支持 **速卖通（AliExpress）**、**Alibaba.com** 和 **[Accio.com](https://www.accio.com/)** 的商品链接。把任意平台的商品链接丢给你的 AI 助手，它就能自动导入 DSers 并上架到你的店铺。（1688 链接也能识别，但需要你的 DSers 账号开通了 1688 来源权限。）
 
 ### Accio.com — AI 智能找商
 
@@ -360,6 +325,29 @@ npx @lofder/dsers-mcp-product login
 
 同时已收录到官方 [MCP Registry](https://registry.modelcontextprotocol.io/servers/io.github.lofder/dsers-mcp-product)。
 
+### 授权认证 — 零密码登录
+
+你的 DSers 密码**完全不经过本工具**。登录过程是这样的：
+
+1. 运行 `npx @lofder/dsers-mcp-product login`
+2. 浏览器自动打开 DSers 官方登录页
+3. 你在 DSers 网站上正常登录
+4. 工具拿到登录状态，加密存到本地
+5. 搞定 — 之后 MCP 直接能用，配置文件里不需要写任何密码
+
+支持 Chrome、Edge、Brave 等主流浏览器。Mac 上 Safari 也行。
+
+**登录大约 6 小时有效。** 过期了 AI 助手会提醒你重新跑一下 `login`，10 秒的事。
+
+**换账号？**
+
+```bash
+npx @lofder/dsers-mcp-product logout
+npx @lofder/dsers-mcp-product login
+```
+
+> **开发者注：** 也支持通过 HTTP headers（Smithery 自动注入）、`DSERS_TOKEN` 环境变量、或旧的 `DSERS_EMAIL` + `DSERS_PASSWORD` 环境变量传入凭据。普通用户直接用 `login` 就行。
+
 ### 通过 Smithery 安装
 
 ```bash
@@ -394,13 +382,13 @@ npx @smithery/cli dev ./src/index.ts
 |---|------|------|------|
 | 1 | `dsers.store.discover` | 店铺与规则发现 | 查询店铺、配送方案、支持的规则 |
 | 2 | `dsers.rules.validate` | 定价与内容规则校验 | 规则校验试运行 |
-| 3 | `dsers.product.import` | 速卖通/Alibaba/1688/Accio 导入 | 从 URL 导入、应用规则、获取预览；支持 re-apply 模式 |
+| 3 | `dsers.product.import` | 速卖通/Alibaba/Accio 导入 | 从 URL 导入、应用规则、获取预览；支持 re-apply 模式 |
 | 4 | `dsers.product.preview` | 导入草稿预览 | 重新加载已保存的预览 |
 | 5 | `dsers.product.visibility` | Shopify/Wix 可见性切换 | 切换草稿 / 上架 |
 | 6 | `dsers.store.push` | 推送到 Shopify/Wix | 单条/批量/多店铺推送 |
 | 7 | `dsers.job.status` | 任务状态跟踪 | 查看推送结果 |
 
-所有工具均包含 MCP 注解（`readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`），错误返回结构化格式 `{Error, Cause, Action}`，方便 AI agent 理解和处理。
+所有工具报错时会返回清晰的结构化消息，AI 助手能看懂出了什么问题、该怎么处理。
 
 ### 四个预设提示
 
@@ -412,62 +400,6 @@ MCP 客户端可直接展示给用户的工作流模板：
 | `dsers.workflow.bulk-import` | 批量导入 + 统一定价倍率 |
 | `dsers.workflow.multi-push` | 一个商品推送到所有店铺 |
 | `dsers.workflow.seo-optimize` | 导入后 AI 重写标题和描述做 SEO 优化，再推送 |
-
-### 授权认证
-
-本工具**绝不要求或接触你的 DSers 密码**。认证方式是在你的浏览器中打开 DSers 官方登录页，你自己登录后工具抓取 session cookie。
-
-#### 流程
-
-```
-运行 login 命令
-    ↓
-浏览器打开 https://accounts.dsers.com/accounts/login
-    ↓
-你在 DSers 官网登录（密码只给 DSers）
-    ↓
-工具通过 Chrome DevTools Protocol 抓取 session cookie
-    ↓
-Session token 用 AES-256-GCM 加密，保存到 ~/.dsers-mcp/credentials
-    ↓
-MCP 服务端读取加密 token —— 配置里不需要密码
-```
-
-#### 登录
-
-```bash
-npx @lofder/dsers-mcp-product login
-```
-
-工具自动检测 Chromium 系浏览器（Chrome、Edge、Brave 等），支持 macOS、Linux、Windows。macOS 没有 Chromium 时会降级用 Safari（AppleScript）。
-
-#### Session 有效期
-
-大约 **6 小时**。过期后 AI agent 会收到结构化错误提示，引导它告诉你：*"你的 DSers 登录已过期，请重新运行 `npx @lofder/dsers-mcp-product login`"*。
-
-#### 切换账号
-
-```bash
-npx @lofder/dsers-mcp-product logout   # 清除当前 session
-npx @lofder/dsers-mcp-product login    # 用另一个账号登录
-```
-
-#### 凭据优先级
-
-| 优先级 | 来源 | 适用场景 |
-|--------|------|----------|
-| 1 | HTTP headers (`x-dsers-email` / `x-dsers-password`) | Smithery 托管 — 自动注入 |
-| 2 | `DSERS_TOKEN` 环境变量 | 编程/CI 场景 |
-| 3 | 本地加密文件 (`~/.dsers-mcp/credentials`) | 普通用法，`login` 命令 |
-| 4 | `DSERS_EMAIL` + `DSERS_PASSWORD` 环境变量 | 旧方式 / 无浏览器服务器 |
-
-大多数用户用 `login` 命令（优先级 3）就够了。配置文件不需要密码，不需要管环境变量。
-
-#### 安全说明
-
-- 密码只在 DSers 官网输入，本工具不会截获。
-- Session token 用 AES-256-GCM 加密存储，文件权限 `0600`（仅所有者可读）。
-- 篡改凭据文件会返回 null（GCM auth tag 完整性校验）。
 
 ### 其他版本
 

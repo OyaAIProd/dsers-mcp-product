@@ -53,7 +53,7 @@ const DSERS_REASON_MAP: Record<string, AgentError> = {
   ALIBABA_NOT_AVAILABLE: {
     summary: "Alibaba product not importable (likely MOQ > 1)",
     cause:
-      "The Alibaba/1688 product exists but DSers cannot import it. " +
+      "The Alibaba product exists but DSers cannot import it. " +
       "The most common reason is the product's Minimum Order Quantity (MOQ) is greater than 1. " +
       "DSers only supports Alibaba products that allow single-piece ordering (MOQ = 1).",
     action:
@@ -160,7 +160,7 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
       summary: "Missing product URL",
       cause: "No supplier product URL was provided.",
       action:
-        "Provide source_url with a valid AliExpress, Alibaba, or 1688 product link. " +
+        "Provide source_url with a valid AliExpress, Alibaba, or Accio product link. " +
         "Example: https://www.aliexpress.com/item/1234567890.html",
     },
   ],
@@ -190,7 +190,7 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
       summary: "Invalid or unrecognized product URL",
       cause: "The URL does not match a known supplier format or the product page could not be parsed.",
       action:
-        "Verify the URL is a valid product page from AliExpress (.com or .us), Alibaba, 1688, " +
+        "Verify the URL is a valid product page from AliExpress (.com or .us), Alibaba, " +
         "or an Accio product staging link. " +
         "The URL should contain /item/NUMBERS.html for AliExpress.",
     },

@@ -1,6 +1,6 @@
 ---
 name: dsers-mcp-product
-description: Automate DSers product import from AliExpress/Alibaba/1688/Accio to Shopify & Wix. Use when the user wants to import, edit, price, or push dropshipping products to their store via DSers.
+description: Automate DSers product import from AliExpress/Alibaba/Accio to Shopify & Wix. Use when the user wants to import, edit, price, or push dropshipping products to their store via DSers.
 ---
 
 # DSers MCP Product
@@ -90,13 +90,13 @@ Supported Accio URL patterns:
 - `accio.com/d/{id}?dataSource=Alibaba.com` — product detail page
 - Any Accio page URL with a `productId` query parameter
 
-When `ds` contains `aliexpress` → AliExpress import. When `ds` contains `alibaba` or `1688` → Alibaba import. If `ds` is missing and `productId` is numeric (5+ digits), defaults to AliExpress.
+When `ds` contains `aliexpress` → AliExpress import. When `ds` contains `alibaba` → Alibaba import. If `ds` is missing and `productId` is numeric (5+ digits), defaults to AliExpress.
 
 ### Single vs Batch
 
 - User gives **one URL** → use `source_url` in `dsers.product.import`
 - User gives **multiple URLs** → use `source_urls_json` (JSON array string). Each URL is processed independently; failures don't block others.
-- Mixed sources (AliExpress + 1688 + Alibaba + Accio) work in the same batch call.
+- Mixed sources (AliExpress + Alibaba + Accio) work in the same batch call.
 
 ### Push Modes
 
@@ -176,7 +176,7 @@ Map user intent to `push_options` (passed as `push_options_json` — a JSON stri
 - `stores`: array of `{store_ref, display_name, platform, domain, shipping_profiles}`
 - `rule_families`: `{pricing, content, images, visibility}` with supported keys per family
 - `push_options`: supported keys, valid values for enums, available sales channels
-- `source_support`: array of supported platforms (aliexpress, alibaba, 1688, accio)
+- `source_support`: array of supported platforms (aliexpress, alibaba, accio)
 
 ### dsers.product.import / dsers.product.preview
 
@@ -230,7 +230,7 @@ Common error patterns and recommended actions:
 
 Never expose raw API error bodies to the user. Summarize using the structured error fields above.
 
-- **Import fails**: check URL format. AliExpress bundle URLs are not supported. 1688/Alibaba require the DSers account to have that source enabled.
+- **Import fails**: check URL format. AliExpress bundle URLs are not supported. Alibaba requires the DSers account to have that source enabled. 1688 URLs are recognized but require DSers account authorization for this source.
 - **"shipping profile not found"**: should not happen (auto-discovered). If it does, call `dsers.store.discover` to check available profiles, then retry with explicit `shipping_profile_name` in push_options.
 - **Push returns `failed`**: check `warnings` array for details. Common cause: product was deleted from import list between prepare and push.
 - **Unknown target_store**: the error message lists available stores. Use store_ref or display_name from dsers.store.discover.
@@ -247,7 +247,7 @@ dsers.store.discover → dsers.product.import(source_url, rules_json) → dsers.
 
 **Batch with mixed sources:**
 ```
-dsers.store.discover → dsers.product.import(source_urls_json: '["ae_url", "1688_url"]') → dsers.store.push(job_ids_json: '["job1", "job2"]', target_store)
+dsers.store.discover → dsers.product.import(source_urls_json: '["ae_url", "alibaba_url"]') → dsers.store.push(job_ids_json: '["job1", "job2"]', target_store)
 ```
 
 **Preview before push:**

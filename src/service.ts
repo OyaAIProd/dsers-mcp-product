@@ -212,7 +212,7 @@ export class ImportFlowService {
     const sourceUrl = String(payload.source_url ?? "").trim();
     if (!sourceUrl)
       throw new Error(
-        "source_url is required. Provide a supplier product URL (AliExpress, Alibaba, or 1688).",
+        "source_url is required. Provide a supplier product URL (AliExpress, Alibaba, or Accio).",
       );
 
     const sourceHint = String(payload.source_hint ?? "auto").trim() || "auto";

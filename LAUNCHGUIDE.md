@@ -6,7 +6,7 @@ AI-powered dropshipping: import products from AliExpress, Alibaba, Accio to Shop
 
 ## Description
 
-DSers MCP Product lets AI agents automate the entire DSers dropshipping workflow. Give your AI a product link from AliExpress, Alibaba, 1688, or Accio.com — it handles import, title cleanup, pricing rules, variant editing, and multi-store push to Shopify or Wix. One sentence, full automation.
+DSers MCP Product lets AI agents automate the entire DSers dropshipping workflow. Give your AI a product link from AliExpress, Alibaba, or Accio.com — it handles import, title cleanup, pricing rules, variant editing, and multi-store push to Shopify or Wix. One sentence, full automation.
 
 The server is open-source, hosted on Vercel, and published on Smithery, npm, and the official MCP Registry.
 
@@ -22,7 +22,7 @@ Business Tools
 
 ## Features
 
-- Import products from AliExpress, Alibaba, 1688, and Accio.com URLs
+- Import products from AliExpress, Alibaba, and Accio.com URLs
 - Accio.com integration: search products with AI, copy link, import — zero extra setup
 - Batch import: process multiple product URLs in a single call
 - Apply pricing rules: multiplier, fixed markup, or provider default
@@ -54,7 +54,7 @@ Business Tools
 
 ## Tags
 
-dsers, shopify, wix, aliexpress, alibaba, 1688, accio, dropshipping, ecommerce, product-import, mcp, ai-agent, bulk-import, pricing-rules, multi-store, seo, typescript, smithery
+dsers, shopify, wix, aliexpress, alibaba, accio, dropshipping, ecommerce, product-import, mcp, ai-agent, bulk-import, pricing-rules, multi-store, seo, typescript, smithery
 
 ## Documentation URL
 

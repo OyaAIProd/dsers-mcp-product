@@ -181,7 +181,7 @@ Rules: `{"content": {"title_prefix": "Premium "}, "images": {"keep_first_n": 3}}
 ### FAQ
 
 **Q: Can I import from 1688?**
-A: Yes. The system detects the source from the URL. Make sure the 1688 source app is enabled in your DSers account.
+A: 1688 links are recognized, but your DSers account needs to have 1688 source authorization enabled. If you don't have it, the import will fail with an error message.
 
 **Q: What happens if a push fails?**
 A: Check the `warnings` array in the response. The most common cause is a missing shipping profile. Call `dsers.store.discover` to check available profiles.
@@ -318,7 +318,7 @@ openclaw mcp list
 ### 常见问题
 
 **Q: 可以从 1688 导入吗？**
-A: 可以。系统从 URL 自动检测来源。确保你的 DSers 账户启用了 1688 来源应用。
+A: 1688 链接可以识别，但需要你的 DSers 账号开通了 1688 来源权限。没开通的话导入会报错提示。
 
 **Q: 推送失败怎么办？**
 A: 检查响应中的 `warnings` 数组。最常见的原因是缺少配送方案。调用 `dsers.store.discover` 查看可用方案。
