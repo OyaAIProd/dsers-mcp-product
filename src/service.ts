@@ -711,6 +711,45 @@ export class ImportFlowService {
     this.store.save(job.job_id, job);
   }
 
+  async deleteImportItem(
+    payload: Record<string, any>,
+  ): Promise<Record<string, any>> {
+    const importItemId = String(payload.import_item_id ?? "").trim();
+    if (!importItemId) {
+      throw new Error(
+        "import_item_id is required. " +
+        "RECOVERY: Call dsers.product.preview with the job_id to get the import_item_id, " +
+        "or use searchImportList to find the item. " +
+        "USER_HINT: Ask the user which product to delete.",
+      );
+    }
+
+    const confirm = payload.confirm === true || payload.confirm === "true";
+    if (!confirm) {
+      return {
+        action: "delete_import_item",
+        import_item_id: importItemId,
+        requires_confirmation: true,
+        message:
+          "This will permanently delete the product from the DSers import list. " +
+          "This action is IRREVERSIBLE — the product cannot be recovered after deletion. " +
+          "To proceed, call this tool again with confirm=true. " +
+          "If the product has already been pushed to a store, deleting it from the import list " +
+          "does NOT remove it from the store.",
+      };
+    }
+
+    await this.provider.deleteImportItem(importItemId);
+
+    return {
+      deleted: true,
+      import_item_id: importItemId,
+      message: "Product deleted from import list.",
+      note: "If this product was pushed to a store, the store listing still exists. " +
+        "Use Shopify admin to manage store listings.",
+    };
+  }
+
   async getJobStatus(
     payload: Record<string, any>,
   ): Promise<Record<string, any>> {

@@ -59,6 +59,7 @@ export interface ImportProvider {
     pushOptions: Record<string, any>,
   ): Promise<Record<string, any>>;
   fetchImportItem(importItemId: string): Promise<Record<string, any>>;
+  deleteImportItem(importItemId: string): Promise<Record<string, any>>;
   normalizeForRecovery(
     itemPayload: Record<string, any>,
   ): [Record<string, any>, Record<string, any>, string[]];
@@ -1613,6 +1614,17 @@ export class PrivateDsersProvider implements ImportProvider {
       "Could not re-fetch the import list item for job recovery. The item may have been deleted.",
     );
     return payload;
+  }
+
+  async deleteImportItem(importItemId: string): Promise<Record<string, any>> {
+    const result = await safeCall(() =>
+      product.deleteImportList(this.client, importItemId),
+    );
+    this.raiseIfError(
+      result,
+      "Could not delete the import list item. It may have already been deleted or pushed to a store.",
+    );
+    return result;
   }
 
   normalizeForRecovery(

@@ -498,6 +498,49 @@ export function registerTools(
     },
   );
 
+  server.registerTool(
+    "dsers.product.delete",
+    {
+      title: "Delete Product from Import List",
+      description:
+        "Permanently delete a product from the DSers import list. " +
+        "IRREVERSIBLE — the product cannot be recovered after deletion. " +
+        "Requires explicit confirmation (confirm=true) to execute. " +
+        "If called without confirm=true, returns a confirmation prompt. " +
+        "NOTE: Deleting from the import list does NOT remove products already pushed to a store. " +
+        "AGENT PROTOCOL: Always show the user the product title/URL before asking for confirmation. " +
+        "Never set confirm=true without the user's explicit consent.",
+      inputSchema: {
+        import_item_id: z
+          .string()
+          .describe(
+            "The import list item ID to delete. " +
+            "Obtain from dsers.product.preview (provider_state.import_item_id) " +
+            "or from searchImportList results.",
+          ),
+        confirm: z
+          .boolean()
+          .optional()
+          .describe(
+            "Set to true to confirm deletion. " +
+            "First call without this to get a confirmation prompt, " +
+            "then call again with confirm=true after user approves.",
+          ),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ import_item_id, confirm }) => {
+      try {
+        return ok(await svc().deleteImportItem({ import_item_id, confirm }));
+      } catch (err) { return fail(err); }
+    },
+  );
+
   // ── Prompts ──
 
   server.prompt(
