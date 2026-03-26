@@ -982,7 +982,7 @@ export class PrivateDsersProvider implements ImportProvider {
         }
       }
       return result;
-    } catch {
+    } catch (_profileErr: unknown) {
       return {};
     }
   }
@@ -1104,6 +1104,7 @@ export class PrivateDsersProvider implements ImportProvider {
   // ── URL & ID parsing ──
 
   private extractAfTraceId(sourceUrl: string): string {
+    if (!sourceUrl) return "";
     try {
       const url = new URL(sourceUrl);
       const trace = url.searchParams.get("afTraceInfo") ?? "";
@@ -1212,6 +1213,7 @@ export class PrivateDsersProvider implements ImportProvider {
   }
 
   private cleanProductUrl(sourceUrl: string): string {
+    if (!sourceUrl) return sourceUrl;
     try {
       const url = new URL(sourceUrl);
       return `${url.origin}${url.pathname}`;

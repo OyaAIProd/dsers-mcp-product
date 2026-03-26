@@ -1,0 +1,106 @@
+{
+  "manifest_version": "0.3",
+  "name": "dsers-mcp-product",
+  "display_name": "DSers — Dropshipping Product Import",
+  "version": "1.1.5",
+  "description": "Automate DSers product import from AliExpress/Alibaba/Accio to Shopify & Wix using AI",
+  "long_description": "An MCP server that lets AI agents automate the entire DSers dropshipping workflow. Paste a product link from AliExpress, Alibaba, or Accio.com — your AI agent imports it, applies pricing rules, cleans up the title, and pushes it to your Shopify or Wix store. Supports bulk import, multi-store push, SEO optimization, and pre-push safety checks.",
+  "author": {
+    "name": "lofder",
+    "url": "https://github.com/lofder"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lofder/dsers-mcp-product.git"
+  },
+  "homepage": "https://github.com/lofder/dsers-mcp-product",
+  "documentation": "https://github.com/lofder/dsers-mcp-product/blob/main/USAGE.md",
+  "support": "https://github.com/lofder/dsers-mcp-product/issues",
+  "license": "MIT",
+  "privacy_policies": [
+    "https://dsers-mcp-product.vercel.app/privacy-policy"
+  ],
+  "keywords": [
+    "dsers",
+    "dropshipping",
+    "shopify",
+    "aliexpress",
+    "alibaba",
+    "accio",
+    "product-import",
+    "wix",
+    "ecommerce",
+    "bulk-import"
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"],
+      "env": {}
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  },
+  "tools": [
+    {
+      "name": "dsers.store.discover",
+      "description": "Retrieve connected stores, shipping methods, pricing rules, and push options"
+    },
+    {
+      "name": "dsers.rules.validate",
+      "description": "Test pricing or title rules before applying — catches mistakes early"
+    },
+    {
+      "name": "dsers.product.import",
+      "description": "Import a product from AliExpress/Alibaba/Accio URL with optional pricing rules"
+    },
+    {
+      "name": "dsers.product.preview",
+      "description": "Review an imported product — title, price, variants, stock at a glance"
+    },
+    {
+      "name": "dsers.product.visibility",
+      "description": "Set whether a product shows up in your store or stays as a hidden draft"
+    },
+    {
+      "name": "dsers.store.push",
+      "description": "Push products to Shopify or Wix — single, bulk, or all stores at once"
+    },
+    {
+      "name": "dsers.job.status",
+      "description": "Check if a push finished and whether it succeeded"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "dsers.workflow.quick-import",
+      "description": "Import a single product and push to store as draft",
+      "arguments": ["product_url", "store_name"],
+      "text": "Import this product and push it to ${arguments.store_name} as a draft:\n${arguments.product_url}\n\nSteps: 1) dsers.store.discover. 2) dsers.product.import. 3) Show preview. 4) dsers.store.push with visibility_mode=backend_only."
+    },
+    {
+      "name": "dsers.workflow.bulk-import",
+      "description": "Batch import multiple products with pricing multiplier",
+      "arguments": ["product_urls", "price_multiplier", "store_name"],
+      "text": "Bulk import these products with a ${arguments.price_multiplier}x price markup and push to ${arguments.store_name}:\n${arguments.product_urls}\n\nSteps: 1) dsers.store.discover. 2) dsers.product.import with rules. 3) Show previews. 4) dsers.store.push for each."
+    },
+    {
+      "name": "dsers.workflow.multi-push",
+      "description": "Push one product to all connected stores",
+      "arguments": ["product_url"],
+      "text": "Import this product and push it to ALL my stores:\n${arguments.product_url}\n\nSteps: 1) dsers.store.discover — list all stores. 2) dsers.product.import. 3) dsers.store.push with all stores."
+    },
+    {
+      "name": "dsers.workflow.seo-optimize",
+      "description": "Import, AI-rewrite title & description for SEO, then push",
+      "arguments": ["product_url", "store_name", "target_audience"],
+      "text": "Import this product and optimize for SEO before pushing to ${arguments.store_name}:\n${arguments.product_url}\nTarget audience: ${arguments.target_audience}\n\nWorkflow: 1) dsers.store.discover. 2) dsers.product.import — get raw preview. 3) Rewrite title and description for SEO. 4) Re-import with rules. 5) Show preview for approval. 6) dsers.store.push."
+    }
+  ]
+}

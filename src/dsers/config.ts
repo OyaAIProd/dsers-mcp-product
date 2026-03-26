@@ -26,9 +26,10 @@ export interface DSersConfig {
 
 /**
  * Credential resolution order (highest to lowest priority):
- *   1. configFromParams() — called when HTTP headers x-dsers-email / x-dsers-password are present
- *   2. configFromEnv()    — falls back to process.env.DSERS_EMAIL / DSERS_PASSWORD
+ *   1. Token file (~/.dsers-mcp/credentials) — created by `npx … login`
+ *   2. Environment variables DSERS_EMAIL / DSERS_PASSWORD
  * Only one source is used; they are NOT merged.
+ * See cli.ts startServer() for the actual resolution logic.
  */
 export function configFromEnv(): DSersConfig {
   const env = (process.env.DSERS_ENV ?? "production").toLowerCase();

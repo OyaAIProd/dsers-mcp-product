@@ -45,8 +45,7 @@ export class DSersAuth {
       throw new Error(
         "DSers credentials not configured.\n" +
         "Recommended: run 'npx @lofder/dsers-mcp-product login' to authenticate via browser.\n" +
-        "Alternative: set DSERS_EMAIL and DSERS_PASSWORD environment variables.\n" +
-        "For Smithery: credentials are provided via the config form automatically.",
+        "Alternative: set DSERS_EMAIL and DSERS_PASSWORD environment variables.",
       );
     }
 
@@ -108,7 +107,7 @@ export class DSersAuth {
         ts: this.fetchedAt,
       };
       writeFileSync(p, JSON.stringify(payload), { encoding: "utf-8", mode: 0o600 });
-      try { chmodSync(p, 0o600); } catch { /* Windows */ }
+      try { chmodSync(p, 0o600); } catch (_chmodErr: unknown) { /* Windows: chmod not fully supported */ }
     } catch (_writeErr: unknown) { /* file write failed — continue with in-memory session only */ }
   }
 }

@@ -44,7 +44,7 @@ export default function createServer(context: ServerContext<DsersConfig>) {
   const service = new ImportFlowService(provider, store);
 
   const server = new McpServer(
-    { name: "dsers-mcp-product", version: "1.1.5" },
+    { name: "dsers-mcp-product", version: "1.1.6" },
     { instructions: SERVER_INSTRUCTIONS },
   );
 

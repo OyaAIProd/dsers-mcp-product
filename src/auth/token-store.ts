@@ -31,7 +31,7 @@ function getCredFile(): string {
 function deriveKey(): Buffer {
   const host = hostname();
   let user = "";
-  try { user = userInfo().username; } catch { user = process.env.USER ?? process.env.USERNAME ?? "default"; }
+  try { user = userInfo().username; } catch (_osErr: unknown) { user = process.env.USER ?? process.env.USERNAME ?? "default"; }
   return createHash("sha256").update(`${PACKAGE_SEED}:${host}:${user}`).digest();
 }
 
@@ -55,7 +55,7 @@ function decrypt(encoded: string): string | null {
     const decipher = createDecipheriv(ALG, key, iv, { authTagLength: TAG_LEN });
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(ct), decipher.final()]).toString("utf8");
-  } catch {
+  } catch (_decryptErr: unknown) {
     return null;
   }
 }
@@ -67,7 +67,7 @@ export function saveToken(session: StoredSession): void {
   const encrypted = encrypt(json);
   const file = getCredFile();
   writeFileSync(file, encrypted, "utf-8");
-  try { chmodSync(file, 0o600); } catch { /* Windows: chmod not fully supported */ }
+  try { chmodSync(file, 0o600); } catch (_chmodErr: unknown) { /* Windows: chmod not fully supported */ }
 }
 
 export function loadToken(): StoredSession | null {
@@ -80,7 +80,7 @@ export function loadToken(): StoredSession | null {
     const session = JSON.parse(json) as StoredSession;
     if (!session.session_id) return null;
     return session;
-  } catch {
+  } catch (_readErr: unknown) {
     return null;
   }
 }
@@ -88,7 +88,7 @@ export function loadToken(): StoredSession | null {
 export function clearToken(): boolean {
   const file = getCredFile();
   if (!existsSync(file)) return false;
-  try { unlinkSync(file); return true; } catch { return false; }
+  try { unlinkSync(file); return true; } catch (_rmErr: unknown) { return false; }
 }
 
 export function tokenFilePath(): string {
