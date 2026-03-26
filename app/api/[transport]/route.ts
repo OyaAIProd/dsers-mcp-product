@@ -30,7 +30,7 @@ const baseHandler = createMcpHandler(
   (server) => {
     registerTools(server, buildService);
   },
-  { serverInfo: { name: "dsers-mcp-product", version: "1.1.6" } },
+  { serverInfo: { name: "dsers-mcp-product", version: "1.1.7" } },
   { basePath: "/api" },
 );
 
