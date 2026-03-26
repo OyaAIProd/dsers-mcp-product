@@ -218,7 +218,7 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
       cause: "$$RAW$$",
       action:
         "STOP and show the user the EXACT issue above in plain language. " +
-        "Then either: (1) fix the pricing rules with dsers.product.rules.reapply, or " +
+        "Then either: (1) fix the pricing rules with dsers.product.import (re-apply mode: pass job_id + rules_json), or " +
         "(2) if the user explicitly confirms they understand the risk, retry with force_push=true. " +
         "NEVER set force_push silently — you must get user confirmation first.",
     },

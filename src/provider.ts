@@ -46,6 +46,11 @@ export interface ImportProvider {
     sourceHint: string,
     country: string,
   ): Promise<Record<string, any>>;
+  saveDraft(
+    providerState: Record<string, any>,
+    draft: Record<string, any>,
+    pricingRuleBehavior?: string,
+  ): Promise<{ warnings: string[] }>;
   commitCandidate(
     providerState: Record<string, any>,
     draft: Record<string, any>,
@@ -56,7 +61,7 @@ export interface ImportProvider {
   fetchImportItem(importItemId: string): Promise<Record<string, any>>;
   normalizeForRecovery(
     itemPayload: Record<string, any>,
-  ): [Record<string, any>, Record<string, any>];
+  ): [Record<string, any>, Record<string, any>, string[]];
 }
 
 export class PrivateDsersProvider implements ImportProvider {
@@ -300,18 +305,13 @@ export class PrivateDsersProvider implements ImportProvider {
     };
   }
 
-  async commitCandidate(
+  async saveDraft(
     providerState: Record<string, any>,
     draft: Record<string, any>,
-    targetStore: string | null,
-    visibilityMode: string,
-    pushOptions: Record<string, any>,
-  ): Promise<Record<string, any>> {
+    pricingRuleBehavior = "keep_manual",
+  ): Promise<{ warnings: string[] }> {
     const fieldMap: Record<string, any> = providerState.field_map ?? {};
     const warnings: string[] = [];
-    const pricingRuleBehavior = String(
-      pushOptions.pricing_rule_behavior ?? "keep_manual",
-    );
 
     const updateArgs: Record<string, any> = {
       id: providerState.import_item_id,
@@ -384,10 +384,31 @@ export class PrivateDsersProvider implements ImportProvider {
         updateArgs,
       ),
     );
+
+    console.error("[saveDraft] API response:", JSON.stringify(updatePayload ?? {}).slice(0, 500));
+
     this.raiseIfError(
       updatePayload,
       "Could not save the updated product draft. The import list item may have been modified or deleted.",
     );
+
+    return { warnings };
+  }
+
+  async commitCandidate(
+    providerState: Record<string, any>,
+    draft: Record<string, any>,
+    targetStore: string | null,
+    visibilityMode: string,
+    pushOptions: Record<string, any>,
+  ): Promise<Record<string, any>> {
+    const warnings: string[] = [];
+    const pricingRuleBehavior = String(
+      pushOptions.pricing_rule_behavior ?? "keep_manual",
+    );
+
+    const saveResult = await this.saveDraft(providerState, draft, pricingRuleBehavior);
+    warnings.push(...saveResult.warnings);
 
     const store = await this.resolveStore(targetStore);
     const pushArgs = this.buildPushArguments(
@@ -610,7 +631,7 @@ export class PrivateDsersProvider implements ImportProvider {
     storeRef: string,
     pushArgs: Record<string, any>,
   ): Promise<string[]> {
-    if (pushArgs.logistics?.length) return [];
+    if (pushArgs.logistics?.some((l: any) => l.logisticId && String(l.logisticId).trim())) return [];
     const sourceAppId = providerState.source_app_id;
     if (sourceAppId == null || sourceAppId === "") return [];
 
@@ -1364,10 +1385,21 @@ export class PrivateDsersProvider implements ImportProvider {
     );
     if (!rawVariants.length) return normalizedVariants;
 
-    for (let idx = 0; idx < normalizedVariants.length; idx++) {
-      if (idx >= rawVariants.length) break;
-      const normalized = normalizedVariants[idx];
-      const rawVariant = rawVariants[idx];
+    const refKey = fieldMap.variant_ref_key ?? "variant_ref";
+    const rawByRef: Record<string, Record<string, any>> = {};
+    for (let idx = 0; idx < rawVariants.length; idx++) {
+      const raw = rawVariants[idx];
+      const ref = String(
+        firstPresent(raw, ["id", "variantId", "skuId", "sellerSku"]) ?? `variant-${idx}`,
+      );
+      rawByRef[ref] = raw;
+    }
+
+    for (const normalized of normalizedVariants) {
+      const ref = String(normalized[refKey] ?? "");
+      const rawVariant = rawByRef[ref];
+      if (!rawVariant) continue;
+
       const offerKey = firstMatchingKey(rawVariant, [
         "sellPrice",
         "salePrice",
@@ -1377,6 +1409,10 @@ export class PrivateDsersProvider implements ImportProvider {
         "supplierPrice",
         "buyPrice",
         "cost",
+        "price",
+      ]);
+      const compareKey = firstMatchingKey(rawVariant, [
+        "compareAtPrice",
       ]);
       const ttlKey = firstMatchingKey(rawVariant, [
         "title",
@@ -1404,6 +1440,11 @@ export class PrivateDsersProvider implements ImportProvider {
         rawVariant[supplierKey] = coerceLike(
           rawVariant[supplierKey],
           normalized.supplier_price,
+        );
+      if (compareKey && normalized.offer_price != null)
+        rawVariant[compareKey] = coerceLike(
+          rawVariant[compareKey],
+          normalized.offer_price,
         );
       if (ttlKey) rawVariant[ttlKey] = normalized.title;
       if (skuKey) rawVariant[skuKey] = normalized.sku;
@@ -1566,9 +1607,9 @@ export class PrivateDsersProvider implements ImportProvider {
 
   normalizeForRecovery(
     itemPayload: Record<string, any>,
-  ): [Record<string, any>, Record<string, any>] {
-    const [draft, fieldMap] = this.normalizeImportItem(itemPayload);
-    return [draft, fieldMap];
+  ): [Record<string, any>, Record<string, any>, string[]] {
+    const [draft, fieldMap, warnings] = this.normalizeImportItem(itemPayload);
+    return [draft, fieldMap, warnings];
   }
 }
 

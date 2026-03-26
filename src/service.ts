@@ -241,6 +241,20 @@ export class ImportFlowService {
     const ruled = applyRules(prepared.draft, effectiveRules);
     const finalDraft = ruled.draft;
 
+    const hasRuleChanges = ruled.summary?.applied?.length > 0;
+    const saveWarnings: string[] = [];
+    if (hasRuleChanges && prepared.provider_state) {
+      try {
+        const saveResult = await this.provider.saveDraft(
+          prepared.provider_state,
+          finalDraft,
+        );
+        saveWarnings.push(...(saveResult.warnings ?? []));
+      } catch (err: any) {
+        saveWarnings.push(`Failed to persist rule changes to DSers: ${err.message ?? err}`);
+      }
+    }
+
     const job: Record<string, any> = {
       status: "preview_ready",
       created_at: utcNow(),
@@ -263,6 +277,7 @@ export class ImportFlowService {
         ...(prepared.warnings ?? []),
         ...(validatedRules.warnings ?? []),
         ...((ruled.summary?.warnings as string[]) ?? []),
+        ...saveWarnings,
       ],
       rule_summary: ruled.summary ?? {},
     };
@@ -277,7 +292,7 @@ export class ImportFlowService {
     sourceUrls: any[],
   ): Promise<Record<string, any>> {
     if (!sourceUrls.length) {
-      return { error: "source_urls must be a non-empty list" };
+      throw new Error("source_urls must be a non-empty list.");
     }
     const batchId = `batch-${randomUUID().slice(0, 12)}`;
     const sharedKeys = [
@@ -328,6 +343,9 @@ export class ImportFlowService {
         "job_id is required. It is returned by dsers.product.import in the response.",
       );
     const job = this.store.load(jobId);
+    if (job._recovered && !job.draft) {
+      await this.recoverDraft(job);
+    }
     return this.preview(job);
   }
 
@@ -346,7 +364,9 @@ export class ImportFlowService {
           "The job may have been created in a previous server session that is no longer available.",
       );
 
-    const rules = payload.rules ?? {};
+    const rules = payload._keep_existing_rules
+      ? (job.effective_rules_snapshot ?? job.rules ?? {})
+      : (payload.rules ?? {});
     const targetStore = payload.target_store ?? job.target_store ?? null;
     const providerCaps = await this.provider.getRuleCapabilities(targetStore);
     const validatedRules = normalizeRules(rules, providerCaps.rule_families);
@@ -366,11 +386,29 @@ export class ImportFlowService {
     job.updated_at = utcNow();
     if (payload.target_store) job.target_store = payload.target_store;
     if (payload.visibility_mode) job.visibility_mode = payload.visibility_mode;
+
+    const saveWarnings: string[] = [];
+    const hasRuleChanges = ruled.summary?.applied?.length > 0;
+    if (hasRuleChanges && job.provider_state) {
+      try {
+        const saveResult = await this.provider.saveDraft(
+          job.provider_state,
+          job.draft,
+        );
+        saveWarnings.push(...(saveResult.warnings ?? []));
+      } catch (err: any) {
+        saveWarnings.push(`Failed to persist changes to DSers: ${err.message ?? err}`);
+      }
+    }
+
     job.warnings = [
-      ...(job.warnings?.filter((w: string) => !w.startsWith("Rule re-applied")) ?? []),
+      ...(job.warnings?.filter((w: string) =>
+        !w.startsWith("Rule re-applied") && !w.startsWith("Failed to persist"),
+      ) ?? []),
       `Rule re-applied at ${job.updated_at}`,
       ...(validatedRules.warnings ?? []),
       ...((ruled.summary?.warnings as string[]) ?? []),
+      ...saveWarnings,
     ];
     this.store.save(jobId, job);
     return this.preview(job);
@@ -463,6 +501,13 @@ export class ImportFlowService {
     job.effective_push_options = effectivePushOptions;
     job.push_option_warnings = pushOptionCheck.warnings ?? [];
     job.push_result = result;
+    if (!job.push_results) job.push_results = [];
+    job.push_results.push({
+      target_store: targetStore,
+      status: result.job_status ?? "push_requested",
+      pushed_at: job.updated_at,
+      summary: result.summary ?? {},
+    });
     this.store.save(jobId, job);
 
     return {
@@ -488,10 +533,9 @@ export class ImportFlowService {
     const batchId = `batch-${randomUUID().slice(0, 12)}`;
     const jobId = String(payload.job_id ?? "").trim();
     if (!jobId) {
-      return {
-        error:
-          "job_id is required when using target_stores. It is returned by dsers.product.import.",
-      };
+      throw new Error(
+        "job_id is required when using target_stores. It is returned by dsers.product.import.",
+      );
     }
 
     const results: Record<string, any>[] = [];
@@ -524,7 +568,7 @@ export class ImportFlowService {
     jobIds: any[],
   ): Promise<Record<string, any>> {
     if (!jobIds.length) {
-      return { error: "job_ids must be a non-empty list" };
+      throw new Error("job_ids must be a non-empty list.");
     }
     const batchId = `batch-${randomUUID().slice(0, 12)}`;
     const tasks = expandPushTasks(
@@ -566,7 +610,7 @@ export class ImportFlowService {
     if (!importItemId)
       throw new Error("Cannot recover job: missing import_item_id in state.");
     const itemPayload = await this.provider.fetchImportItem(importItemId);
-    const [draft, fieldMap] = this.provider.normalizeForRecovery(itemPayload);
+    const [draft, fieldMap, recoverWarnings] = this.provider.normalizeForRecovery(itemPayload);
     const rules = job.effective_rules_snapshot ?? job.rules ?? {};
     const ruled = applyRules(draft, rules);
     job.draft = ruled.draft;
@@ -574,6 +618,29 @@ export class ImportFlowService {
     if (fieldMap && job.provider_state) {
       job.provider_state.field_map = fieldMap;
     }
+    job.rule_summary = ruled.summary ?? {};
+    job.updated_at = utcNow();
+
+    const saveWarnings: string[] = [];
+    const hasRuleChanges = ruled.summary?.applied?.length > 0;
+    if (hasRuleChanges && job.provider_state) {
+      try {
+        const saveResult = await this.provider.saveDraft(
+          job.provider_state,
+          job.draft,
+        );
+        saveWarnings.push(...(saveResult.warnings ?? []));
+      } catch (err: any) {
+        saveWarnings.push(`Failed to persist rule changes to DSers: ${err.message ?? err}`);
+      }
+    }
+
+    job.warnings = [
+      ...(job.warnings ?? []),
+      ...(recoverWarnings ?? []),
+      ...((ruled.summary?.warnings as string[]) ?? []),
+      ...saveWarnings,
+    ];
     job.status = "preview_ready";
     this.store.save(job.job_id, job);
   }

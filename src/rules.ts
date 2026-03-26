@@ -69,6 +69,10 @@ function _normalizePricing(
       errors.push("pricing.multiplier must be a number when pricing.mode='multiplier'.");
       return {};
     }
+    if (multiplier <= 0) {
+      errors.push("pricing.multiplier must be greater than 0.");
+      return {};
+    }
     normalized.multiplier = multiplier;
   } else if (mode === "fixed_markup") {
     const markup = _asFloat(pricing.fixed_markup, null);
@@ -76,13 +80,17 @@ function _normalizePricing(
       errors.push("pricing.fixed_markup must be a number when pricing.mode='fixed_markup'.");
       return {};
     }
+    if (markup < 0) {
+      errors.push("pricing.fixed_markup must be >= 0.");
+      return {};
+    }
     normalized.fixed_markup = markup;
   }
   if (mode !== "provider_default") {
     const rd = pricing.round_digits ?? 2;
     const roundDigits = Number.isInteger(rd) ? rd : parseInt(String(rd), 10);
-    if (Number.isNaN(roundDigits)) {
-      errors.push("pricing.round_digits must be an integer when provided.");
+    if (Number.isNaN(roundDigits) || roundDigits < 0 || roundDigits > 10) {
+      errors.push("pricing.round_digits must be an integer between 0 and 10.");
       return {};
     }
     normalized.round_digits = roundDigits;
@@ -238,11 +246,11 @@ export function normalizeRules(
   return { requested_rules: req, effective_rules: effective, warnings, errors };
 }
 
-function _firstPrice(variant: Record<string, any>): number | null {
-  for (const k of ["offer_price", "supplier_price"]) {
-    const v = _asFloat(variant[k], null);
-    if (v != null) return v;
-  }
+function _costPrice(variant: Record<string, any>): number | null {
+  const cost = _asFloat(variant.supplier_price, null);
+  if (cost != null && cost > 0) return cost;
+  const offer = _asFloat(variant.offer_price, null);
+  if (offer != null && offer > 0) return offer;
   return null;
 }
 
@@ -256,7 +264,7 @@ function _applyPricing(draft: Record<string, any>, pricing: Record<string, any>,
   const variants = draft.variants ?? [];
   let changed = 0;
   for (const v of variants) {
-    const base = _firstPrice(v);
+    const base = _costPrice(v);
     if (base == null) continue;
     let newPrice: number;
     if (mode === "multiplier") newPrice = roundTo(base * multiplier, roundDigits);

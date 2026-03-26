@@ -11,7 +11,7 @@ export interface PushSafetyResult {
 }
 
 const LOW_STOCK_THRESHOLD = 5;
-const LOW_PRICE_CENTS = 100; // $1.00
+const LOW_PRICE_THRESHOLD = 1.0; // $1.00
 const LOW_MARGIN_RATIO = 0.10; // 10 %
 
 export function validatePushSafety(
@@ -25,52 +25,65 @@ export function validatePushSafety(
   if (!variants.length) return { blocked, warnings };
 
   let totalStock = draft.total_inventory as number | null | undefined;
-  let hasAnyStock = false;
   let allStockZero = true;
   let stockDataAvailable = false;
 
-  for (const v of variants) {
+  const origVariants: Record<string, any>[] = originalDraft?.variants ?? [];
+
+  for (let idx = 0; idx < variants.length; idx++) {
+    const v = variants[idx];
     const label = v.title || v.sku || v.variant_ref || "unnamed";
     const offer = toNum(v.offer_price);
     const cost = toNum(v.supplier_price);
     const stock = toNum(v.stock);
 
     // ── Price checks ──
-    if (offer != null && cost != null) {
-      if (offer === 0 && cost > 0) {
-        blocked.push(
-          `Variant "${label}" has zero sell price ($0.00) but costs $${fmt(cost)}. ` +
-          `This would give the product away for free. Fix with dsers.product.rules.reapply or set a price manually.`,
-        );
-      } else if (offer < cost) {
+
+    if (offer === 0 || (offer != null && offer <= 0)) {
+      blocked.push(
+        `Variant "${label}" has zero or negative sell price ($${fmtDollars(offer ?? 0)}). ` +
+        `This would give the product away for free. ` +
+        `Fix with dsers.product.import (re-apply mode: pass job_id + rules_json) or adjust pricing rules.`,
+      );
+    } else if (offer != null && cost != null) {
+      if (offer < cost) {
         const loss = cost - offer;
         blocked.push(
-          `Variant "${label}" is priced at $${fmt(offer)} but costs $${fmt(cost)} — ` +
-          `a loss of $${fmt(loss)} per unit. Adjust pricing rules before pushing.`,
+          `Variant "${label}" is priced at $${fmtDollars(offer)} but costs $${fmtDollars(cost)} — ` +
+          `a loss of $${fmtDollars(loss)} per unit. Adjust pricing rules before pushing.`,
         );
       } else if (cost > 0) {
         const margin = (offer - cost) / cost;
         if (margin < LOW_MARGIN_RATIO) {
           warnings.push(
-            `Variant "${label}" has a very thin margin: sell $${fmt(offer)} vs cost $${fmt(cost)} ` +
+            `Variant "${label}" has a very thin margin: sell $${fmtDollars(offer)} vs cost $${fmtDollars(cost)} ` +
             `(${(margin * 100).toFixed(1)}%). Consider increasing the price.`,
           );
         }
       }
     }
 
-    if (offer != null && offer > 0 && offer < LOW_PRICE_CENTS) {
+    if (offer != null && offer > 0 && offer < LOW_PRICE_THRESHOLD) {
       warnings.push(
-        `Variant "${label}" has a very low price: $${fmt(offer)}. ` +
+        `Variant "${label}" has a very low price: $${fmtDollars(offer)}. ` +
         `Make sure this is intentional.`,
       );
+    }
+
+    // Detect large price drops compared to original
+    if (originalDraft && offer != null && idx < origVariants.length) {
+      const origOffer = toNum(origVariants[idx]?.offer_price);
+      if (origOffer != null && origOffer > 0 && offer < origOffer * 0.2) {
+        warnings.push(
+          `Variant "${label}" price dropped >80%: $${fmtDollars(origOffer)} → $${fmtDollars(offer)}. Verify pricing rules are correct.`,
+        );
+      }
     }
 
     // ── Stock checks ──
     if (stock != null) {
       stockDataAvailable = true;
       if (stock > 0) {
-        hasAnyStock = true;
         allStockZero = false;
       }
     }
@@ -105,11 +118,12 @@ export function validatePushSafety(
 }
 
 function toNum(val: any): number | null {
-  if (val == null) return null;
+  if (val == null || val === "") return null;
   const n = Number(val);
-  return isNaN(n) ? null : n;
+  if (!Number.isFinite(n)) return null;
+  return n;
 }
 
-function fmt(cents: number): string {
-  return (cents / 100).toFixed(2);
+function fmtDollars(value: number): string {
+  return value.toFixed(2);
 }

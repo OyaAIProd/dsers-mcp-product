@@ -163,10 +163,10 @@ export function registerTools(
           ),
         visibility_mode: z
           .string()
-          .default("backend_only")
+          .optional()
           .describe(
             "Product visibility after push. " +
-              "backend_only: saved as draft, not visible to shoppers. " +
+              "backend_only (default): saved as draft, not visible to shoppers. " +
               "sell_immediately: published and visible on the storefront.",
           ),
         rules_json: z
@@ -199,6 +199,8 @@ export function registerTools(
             );
             if (parsed.error) return fail(new Error(parsed.error));
             rulesPayload.rules = parsed.value;
+          } else {
+            rulesPayload._keep_existing_rules = true;
           }
           if (args.target_store) rulesPayload.target_store = args.target_store;
           if (args.visibility_mode) rulesPayload.visibility_mode = args.visibility_mode;
@@ -213,6 +215,12 @@ export function registerTools(
             'Expected a JSON array of URL strings or objects. Example: ["https://aliexpress.com/item/123.html"]',
           );
           if (parsed.error) return fail(new Error(parsed.error));
+          if (!Array.isArray(parsed.value)) {
+            return fail(new Error(
+              "source_urls_json must be a JSON array, not " + typeof parsed.value + ". " +
+              'Example: ["https://aliexpress.com/item/123.html"]',
+            ));
+          }
           payload.source_urls = parsed.value;
         } else if (args.source_url) {
           payload.source_url = args.source_url;
@@ -221,7 +229,7 @@ export function registerTools(
         if (args.source_hint) payload.source_hint = args.source_hint;
         if (args.country) payload.country = args.country;
         if (args.target_store) payload.target_store = args.target_store;
-        if (args.visibility_mode) payload.visibility_mode = args.visibility_mode;
+        payload.visibility_mode = args.visibility_mode || "backend_only";
 
         if (args.rules_json) {
           const parsed = safeJsonParse(
