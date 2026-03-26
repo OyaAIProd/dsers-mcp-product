@@ -4,7 +4,7 @@ import type { ImportFlowService } from "./service.js";
 import { formatErrorForAgent } from "./error-map.js";
 
 function toJson(data: any): string {
-  return JSON.stringify(data, null, 2);
+  return JSON.stringify(data);
 }
 
 function ok(data: any) {
@@ -113,12 +113,15 @@ export function registerTools(
     {
       title: "AliExpress / Alibaba / Accio Product Import",
       description:
-        "Import product(s) from supplier URL(s) into the DSers import list and return a preview bundle with title, prices, images, and variants. " +
-        "Supports direct AliExpress, Alibaba URLs and Accio.com product staging links (automatically extracts the supplier URL from Accio parameters). " +
-        "Single mode: provide source_url. Batch mode: provide source_urls_json with an array of URLs or objects. " +
-        "Re-apply mode: provide job_id + rules_json to update rules on an existing import without re-importing from the supplier. " +
-        "Each successful import returns a job_id needed for dsers.product.preview, dsers.product.visibility, and dsers.store.push. " +
-        "Returns: job_id, status, title_before/after, description_html_snippet, price_range_before/after, images_before/after, image_urls, variant_count, variant_preview (all), stock_total, stock_low_warning, warnings.",
+        "Import product(s) from supplier URL(s) into the DSers import list and return a preview. " +
+        "Supports AliExpress, Alibaba, and Accio.com URLs. " +
+        "Single: source_url. Batch: source_urls_json. Re-apply rules: job_id + rules_json. " +
+        "PRICE SEMANTICS: sell_price = the store listing price customers pay (maps to Shopify 'price'). " +
+        "cost = supplier purchase price (AliExpress/Alibaba). Absent if source has no separate cost field. " +
+        "no_markup=true when sell_price equals cost (no profit margin set). " +
+        "Use rules_json with pricing.mode=multiplier or fixed_markup to set profitable sell prices. " +
+        "skus format: first row is header [name, sell_price, cost, qty], rest are data rows. " +
+        "Returns: job_id, status, title, sell_price, cost, no_markup, variants_count, images, skus, stock, warnings.",
       inputSchema: {
         job_id: z
           .string()
@@ -251,9 +254,9 @@ export function registerTools(
     {
       title: "Import Draft Preview",
       description:
-        "Reload the preview for a previously prepared import job without re-importing. " +
-        "Use this to re-examine title, prices, images, variants, and applied rules for a job created by dsers.product.import. " +
-        "Returns the same structure as dsers.product.import: job_id, status, title, price ranges, images, variants, rules, warnings.",
+        "Reload preview for an import job. Same response as dsers.product.import. " +
+        "sell_price = store listing price (customer pays, = Shopify price field), cost = supplier purchase price. " +
+        "cost absent if source has no separate cost. no_markup=true when sell_price equals cost.",
       inputSchema: {
         job_id: z
           .string()

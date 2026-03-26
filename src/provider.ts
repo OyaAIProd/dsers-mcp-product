@@ -385,12 +385,32 @@ export class PrivateDsersProvider implements ImportProvider {
       ),
     );
 
-    console.error("[saveDraft] API response:", JSON.stringify(updatePayload ?? {}).slice(0, 500));
+    console.error("[saveDraft] PUT response:", JSON.stringify(updatePayload ?? {}).slice(0, 500));
 
     this.raiseIfError(
       updatePayload,
       "Could not save the updated product draft. The import list item may have been modified or deleted.",
     );
+
+    try {
+      const verify = await product.getImportListItem(this.client, providerState.import_item_id);
+      const vData = (verify as any)?.data ?? verify;
+      const savedTitle = vData?.[fieldMap.title_key ?? "title"];
+      const savedMin = vData?.[fieldMap.min_price_key];
+      const savedMax = vData?.[fieldMap.max_price_key];
+      console.error("[saveDraft] VERIFY title:", savedTitle?.slice?.(0, 60));
+      console.error("[saveDraft] VERIFY minPrice:", savedMin, "maxPrice:", savedMax);
+      const firstVariant = (vData?.[fieldMap.variants_key] ?? [])[0];
+      if (firstVariant) {
+        console.error("[saveDraft] VERIFY variant[0] sellPrice:", firstPresent(firstVariant, ["sellPrice", "salePrice", "price"]),
+          "supplierPrice:", firstPresent(firstVariant, ["supplierPrice", "buyPrice", "cost"]));
+      }
+      if (savedTitle !== draft.title) {
+        warnings.push(`Title may not have persisted: expected "${draft.title.slice(0, 40)}...", got "${String(savedTitle).slice(0, 40)}..."`);
+      }
+    } catch (verifyErr: any) {
+      console.error("[saveDraft] VERIFY failed:", verifyErr.message);
+    }
 
     return { warnings };
   }
@@ -1409,7 +1429,6 @@ export class PrivateDsersProvider implements ImportProvider {
         "supplierPrice",
         "buyPrice",
         "cost",
-        "price",
       ]);
       const compareKey = firstMatchingKey(rawVariant, [
         "compareAtPrice",
@@ -1432,20 +1451,26 @@ export class PrivateDsersProvider implements ImportProvider {
       ]);
 
       if (offerKey)
-        rawVariant[offerKey] = coerceLike(
-          rawVariant[offerKey],
-          normalized.offer_price,
-        );
+        rawVariant[offerKey] = coerceLike(rawVariant[offerKey], normalized.offer_price);
       if (supplierKey && normalized.supplier_price != null)
-        rawVariant[supplierKey] = coerceLike(
-          rawVariant[supplierKey],
-          normalized.supplier_price,
-        );
-      if (compareKey && normalized.offer_price != null)
-        rawVariant[compareKey] = coerceLike(
-          rawVariant[compareKey],
-          normalized.offer_price,
-        );
+        rawVariant[supplierKey] = coerceLike(rawVariant[supplierKey], normalized.supplier_price);
+
+      if (normalized.offer_price != null) {
+        const newOffer = Number(normalized.offer_price);
+        if (Number.isFinite(newOffer)) {
+          if (compareKey) {
+            const cur = Number(rawVariant[compareKey]);
+            if (!Number.isFinite(cur) || cur < newOffer)
+              rawVariant[compareKey] = coerceLike(rawVariant[compareKey], normalized.offer_price);
+          }
+          if ("price" in rawVariant && offerKey !== "price" && supplierKey !== "price") {
+            const cur = Number(rawVariant.price);
+            if (Number.isFinite(cur) && cur < newOffer)
+              rawVariant.price = coerceLike(rawVariant.price, normalized.offer_price);
+          }
+        }
+      }
+
       if (ttlKey) rawVariant[ttlKey] = normalized.title;
       if (skuKey) rawVariant[skuKey] = normalized.sku;
       if (imageKey && normalized.image_url)
@@ -1487,21 +1512,27 @@ export class PrivateDsersProvider implements ImportProvider {
       const compareKey = firstMatchingKey(rawEntry as Record<string, any>, [
         "compareAtPrice",
       ]);
+      const entry = rawEntry as any;
       if (offerKey)
-        (rawEntry as any)[offerKey] = coerceLike(
-          (rawEntry as any)[offerKey],
-          normalized.offer_price,
-        );
+        entry[offerKey] = coerceLike(entry[offerKey], normalized.offer_price);
       if (supplierKey && normalized.supplier_price != null)
-        (rawEntry as any)[supplierKey] = coerceLike(
-          (rawEntry as any)[supplierKey],
-          normalized.supplier_price,
-        );
-      if (compareKey && normalized.offer_price != null)
-        (rawEntry as any)[compareKey] = coerceLike(
-          (rawEntry as any)[compareKey],
-          normalized.offer_price,
-        );
+        entry[supplierKey] = coerceLike(entry[supplierKey], normalized.supplier_price);
+
+      if (normalized.offer_price != null) {
+        const newOffer = Number(normalized.offer_price);
+        if (Number.isFinite(newOffer)) {
+          if (compareKey) {
+            const cur = Number(entry[compareKey]);
+            if (!Number.isFinite(cur) || cur < newOffer)
+              entry[compareKey] = coerceLike(entry[compareKey], normalized.offer_price);
+          }
+          if ("price" in entry && offerKey !== "price" && supplierKey !== "price") {
+            const cur = Number(entry.price);
+            if (Number.isFinite(cur) && cur < newOffer)
+              entry.price = coerceLike(entry.price, normalized.offer_price);
+          }
+        }
+      }
     }
     return rawSupply;
   }
@@ -1810,7 +1841,6 @@ function extractVariants(
             "supplierPrice",
             "buyPrice",
             "cost",
-            "price",
           ]),
         ),
         offer_price: asFloat(

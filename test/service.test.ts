@@ -111,8 +111,8 @@ describe("ImportFlowService", () => {
       });
       expect(result.job_id).toBeDefined();
       expect(result.status).toBe("preview_ready");
-      expect(result.title_after).toBe("Test Product");
-      expect(result.variant_count).toBe(2);
+      expect(result.title).toBe("Test Product");
+      expect(result.variants_count).toBe(2);
     });
 
     it("applies pricing rules during import", async () => {
@@ -120,8 +120,8 @@ describe("ImportFlowService", () => {
         source_url: "https://www.aliexpress.com/item/1234567890.html",
         rules: { pricing: { mode: "multiplier", multiplier: 3 } },
       });
-      expect(result.price_range_after.min).toBe(15);
-      expect(result.price_range_after.max).toBe(18);
+      expect(result.sell_price).toEqual({ min: 15, max: 18 });
+      expect(result.no_markup).toBeUndefined();
       expect((provider.saveDraft as any).mock.calls.length).toBeGreaterThan(0);
     });
 
@@ -148,7 +148,7 @@ describe("ImportFlowService", () => {
       });
       const preview = await service.getImportPreview({ job_id: importResult.job_id });
       expect(preview.job_id).toBe(importResult.job_id);
-      expect(preview.title_after).toBe("Test Product");
+      expect(preview.title).toBe("Test Product");
     });
 
     it("requires job_id", async () => {
@@ -173,8 +173,7 @@ describe("ImportFlowService", () => {
         rules: { pricing: { mode: "multiplier", multiplier: 2 } },
       });
 
-      expect(reapplied.price_range_after.min).toBe(10);
-      expect(reapplied.price_range_after.max).toBe(12);
+      expect(reapplied.sell_price).toEqual({ min: 10, max: 12 });
     });
 
     it("preserves existing rules when _keep_existing_rules is set", async () => {
@@ -188,8 +187,7 @@ describe("ImportFlowService", () => {
         _keep_existing_rules: true,
       });
 
-      expect(reapplied.price_range_after.min).toBe(15);
-      expect(reapplied.price_range_after.max).toBe(18);
+      expect(reapplied.sell_price).toEqual({ min: 15, max: 18 });
     });
 
     it("requires job_id", async () => {
@@ -205,6 +203,7 @@ describe("ImportFlowService", () => {
         rules: { content: { title_override: "New Title" } },
       });
       expect(reapplied.title_after).toBe("New Title");
+      expect(reapplied.title_before).toBe("Test Product");
     });
   });
 
@@ -306,17 +305,135 @@ describe("ImportFlowService", () => {
   // ── Job status ──
 
   describe("getJobStatus", () => {
-    it("returns job status", async () => {
+    it("returns compact status", async () => {
       const importResult = await service.prepareImportCandidate({
         source_url: "https://www.aliexpress.com/item/1234567890.html",
       });
       const status = await service.getJobStatus({ job_id: importResult.job_id });
       expect(status.job_id).toBe(importResult.job_id);
       expect(status.status).toBe("preview_ready");
+      expect(status).not.toHaveProperty("created_at");
+      expect(status).not.toHaveProperty("has_push_result");
     });
 
     it("requires job_id", async () => {
       await expect(service.getJobStatus({})).rejects.toThrow("job_id is required");
+    });
+  });
+
+  // ── Response compactness ──
+
+  describe("response compactness", () => {
+    it("preview omits echoed-back fields", async () => {
+      const result = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/1234567890.html",
+      });
+      expect(result).not.toHaveProperty("source_url");
+      expect(result).not.toHaveProperty("rules");
+      expect(result).not.toHaveProperty("rule_summary");
+      expect(result).not.toHaveProperty("resolver_mode");
+      expect(result).not.toHaveProperty("requested_rules");
+    });
+
+    it("sell_price and cost clearly separated", async () => {
+      const result = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/1234567890.html",
+      });
+      expect(result).toHaveProperty("sell_price");
+      expect(result).toHaveProperty("cost");
+    });
+
+    it("no_markup=true when sell equals cost", async () => {
+      (provider.prepareCandidate as any).mockResolvedValueOnce({
+        provider_label: "Test",
+        provider_state: { import_item_id: "item-nm", field_map: {} },
+        draft: {
+          title: "No Markup", description_html: "", images: [], tags: [],
+          variants: [{ variant_ref: "v1", title: "V", supplier_price: 5, offer_price: 5, stock: 10, sku: "V" }],
+        },
+        warnings: [],
+      });
+      const result = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/nomarkup.html",
+      });
+      expect(result.sell_price).toBe(5);
+      expect(result.cost).toBe(5);
+      expect(result.no_markup).toBe(true);
+    });
+
+    it("no_markup absent when rules applied", async () => {
+      const result = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/1234567890.html",
+        rules: { pricing: { mode: "multiplier", multiplier: 2 } },
+      });
+      expect(result.no_markup).toBeUndefined();
+    });
+
+    it("skus has header row", async () => {
+      const result = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/1234567890.html",
+      });
+      expect(result.skus[0]).toEqual(["name", "sell_price", "cost", "qty"]);
+      expect(result.skus.length).toBeGreaterThan(1);
+    });
+
+    it("title_before/after only when changed", async () => {
+      const result = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/1234567890.html",
+      });
+      expect(result).toHaveProperty("title", "Test Product");
+      expect(result).not.toHaveProperty("title_before");
+      expect(result).not.toHaveProperty("title_after");
+    });
+
+    it("visibility only when non-default", async () => {
+      const result = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/1234567890.html",
+      });
+      expect(result).not.toHaveProperty("visibility");
+    });
+
+    it("skus capped at 3 data rows + 1 header", async () => {
+      const manyVariants = Array.from({ length: 20 }, (_, i) => ({
+        variant_ref: `v${i}`, title: `V${i}`, supplier_price: 5, offer_price: 10, stock: 10, sku: `V${i}`,
+      }));
+      (provider.prepareCandidate as any).mockResolvedValueOnce({
+        provider_label: "Test",
+        provider_state: { import_item_id: "item-many", field_map: {} },
+        draft: { title: "Many", description_html: "", images: [], tags: [], variants: manyVariants },
+        warnings: [],
+      });
+      const result = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/many.html",
+      });
+      expect(result.skus[0]).toEqual(["name", "sell_price", "cost", "qty"]);
+      expect(result.skus).toHaveLength(4); // 1 header + 3 data
+      expect(result.skus_more).toBe(17);
+      expect(result.variants_count).toBe(20);
+    });
+
+    it("push response is compact", async () => {
+      const importResult = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/1234567890.html",
+      });
+      const pushResult = await service.confirmPushToStore({ job_id: importResult.job_id });
+      expect(pushResult).not.toHaveProperty("push_options_applied");
+      expect(pushResult).toHaveProperty("summary");
+    });
+
+    it("warnings are truncated to 100 chars", async () => {
+      const longWarning = "A".repeat(200);
+      (provider.prepareCandidate as any).mockResolvedValueOnce({
+        provider_label: "Test",
+        provider_state: { import_item_id: "item-w", field_map: {} },
+        draft: { title: "W", description_html: "", images: [], tags: [], variants: [{ variant_ref: "v1", title: "V", supplier_price: 5, offer_price: 10, stock: 10, sku: "V" }] },
+        warnings: [longWarning],
+      });
+      const result = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/warn.html",
+      });
+      expect(result.warnings[0].length).toBeLessThanOrEqual(100);
+      expect(result.warnings[0]).toContain("...");
     });
   });
 

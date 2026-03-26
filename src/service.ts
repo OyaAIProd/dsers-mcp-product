@@ -24,24 +24,21 @@ function sumVariantStock(variants?: any[]): number | null {
   return any ? total : null;
 }
 
-function priceRange(draft: Record<string, any>): {
-  min: number | null;
-  max: number | null;
-} {
+function rangeOf(
+  variants: Record<string, any>[],
+  key: string,
+): { min: number; max: number } | number | null {
   const prices: number[] = [];
-  for (const variant of draft.variants ?? []) {
-    for (const key of ["offer_price", "supplier_price"]) {
-      const value = variant[key];
-      if (value == null) continue;
-      const n = Number(value);
-      if (!isNaN(n)) {
-        prices.push(n);
-        break;
-      }
-    }
+  for (const v of variants) {
+    const val = v[key];
+    if (val == null) continue;
+    const n = Number(val);
+    if (!isNaN(n)) prices.push(n);
   }
-  if (!prices.length) return { min: null, max: null };
-  return { min: Math.min(...prices), max: Math.max(...prices) };
+  if (!prices.length) return null;
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  return min === max ? min : { min, max };
 }
 
 function parseBatchItem(
@@ -168,15 +165,40 @@ export class ImportFlowService {
   ): Promise<Record<string, any>> {
     const targetStore = payload?.target_store;
     const caps = await this.provider.getRuleCapabilities(targetStore);
-    return {
-      provider_label: caps.provider_label ?? this.provider.name,
-      source_support: caps.source_support ?? [],
-      stores: caps.stores ?? [],
-      account_info: caps.account_info ?? {},
-      rule_families: caps.rule_families ?? {},
-      push_options: caps.push_options ?? {},
-      notes: caps.notes ?? [],
-    };
+
+    const stores = (caps.stores ?? []).map((s: any) => {
+      const slim: Record<string, any> = { id: s.store_ref, name: s.display_name };
+      if (s.platform && s.platform !== "shopify") slim.platform = s.platform;
+      if (s.shipping_profiles?.length) {
+        slim.ship = s.shipping_profiles.map((p: any) =>
+          p.is_default ? `${p.name} *` : p.name,
+        );
+      }
+      return slim;
+    });
+
+    const rf = caps.rule_families ?? {};
+    const rules: Record<string, any> = {};
+    if (rf.pricing) {
+      const modes = rf.pricing.modes ?? rf.pricing.supported;
+      if (Array.isArray(modes)) rules.pricing = modes.filter((m: string) => m !== "provider_default");
+    }
+    if (rf.content) {
+      const supported = rf.content.supported;
+      rules.content = Array.isArray(supported) ? supported : true;
+    }
+    if (rf.images) {
+      const supported = rf.images.supported;
+      rules.images = Array.isArray(supported) ? supported : true;
+    }
+
+    const result: Record<string, any> = { stores, rules };
+
+    const acct = caps.account_info ?? {};
+    if (acct.aliexpress_auth?.all_expired) result.ae_expired = true;
+    if (acct.plan_status && acct.plan_status !== "active") result.plan_issue = acct.plan_status;
+
+    return result;
   }
 
   async validateRules(
@@ -186,14 +208,12 @@ export class ImportFlowService {
     const rules = payload.rules ?? {};
     const caps = await this.provider.getRuleCapabilities(targetStore);
     const validation = normalizeRules(rules, caps.rule_families);
-    return {
-      provider_label: caps.provider_label ?? this.provider.name,
-      target_store: targetStore,
-      requested_rules: validation.requested_rules ?? {},
-      effective_rules_snapshot: validation.effective_rules ?? {},
-      warnings: validation.warnings ?? [],
-      errors: validation.errors ?? [],
+    const resp: Record<string, any> = {
+      effective_rules: validation.effective_rules ?? {},
     };
+    if (validation.errors?.length) resp.errors = validation.errors;
+    if (validation.warnings?.length) resp.warnings = validation.warnings;
+    return resp;
   }
 
   async prepareImportCandidate(
@@ -510,20 +530,20 @@ export class ImportFlowService {
     });
     this.store.save(jobId, job);
 
-    return {
+    const allWarnings = [
+      ...(safety.warnings ?? []),
+      ...(pushOptionCheck.warnings ?? []),
+      ...(result.warnings ?? []),
+    ];
+    const pushResponse: Record<string, any> = {
       job_id: jobId,
       status: job.status,
       target_store: targetStore,
-      visibility_requested: visibilityMode,
-      visibility_applied: result.visibility_applied ?? visibilityMode,
-      push_options_applied: result.push_options_applied ?? effectivePushOptions,
-      job_summary: result.summary ?? {},
-      warnings: [
-        ...(safety.warnings ?? []),
-        ...(pushOptionCheck.warnings ?? []),
-        ...(result.warnings ?? []),
-      ],
+      visibility: result.visibility_applied ?? visibilityMode,
+      summary: result.summary ?? {},
     };
+    if (allWarnings.length) pushResponse.warnings = [...new Set(allWarnings)].slice(0, 8);
+    return pushResponse;
   }
 
   private async multiStorePushSingleJob(
@@ -657,81 +677,79 @@ export class ImportFlowService {
     const result: Record<string, any> = {
       job_id: jobId,
       status: job.status,
-      created_at: job.created_at,
-      updated_at: job.updated_at,
       target_store: job.target_store,
-      visibility_mode: job.visibility_mode,
-      warnings: [
-        ...(job.warnings ?? []),
-        ...(job.push_option_warnings ?? []),
-      ],
-      has_push_result: Boolean(job.push_result),
     };
     if (job.push_result) {
-      const pr = job.push_result;
-      result.push_result = {
-        status: pr.job_status ?? job.status,
-        target_store: job.target_store,
-        visibility_applied: pr.visibility_applied ?? job.visibility_mode,
-        summary: pr.summary ?? {},
-        warnings: pr.warnings ?? [],
-      };
+      result.push_status = job.push_result.job_status ?? job.status;
     }
+    const allWarns = [...new Set([
+      ...(job.warnings ?? []),
+      ...(job.push_option_warnings ?? []),
+    ])].slice(0, 8);
+    if (allWarns.length) result.warnings = allWarns;
     return result;
   }
 
   private preview(job: Record<string, any>): Record<string, any> {
     const original = job.original_draft;
     const final = job.draft;
+    const MAX_VARIANTS = 3;
 
-    const descBefore = original?.description_html ?? "";
-    const descAfter = final?.description_html ?? "";
-
+    const variants = final?.variants ?? [];
     const preview: Record<string, any> = {
       job_id: job.job_id,
       status: job.status,
-      source_url: job.source_url,
-      resolved_source_url: job.resolved_source_url,
-      resolver_mode: job.resolver_mode,
-      target_store: job.target_store,
-      visibility_mode: job.visibility_mode,
-      title_before: original?.title,
-      title_after: final?.title,
-      description_changed: descBefore !== descAfter,
-      description_html_snippet: descAfter.length > 500
-        ? descAfter.slice(0, 500) + "…"
-        : descAfter || null,
-      images_before: (original?.images ?? []).length,
-      images_after: (final?.images ?? []).length,
-      image_urls: (final?.images ?? []).slice(0, 10).map((img: any) =>
-        typeof img === "string" ? img : img?.src ?? img?.url ?? null,
-      ).filter(Boolean),
-      variant_count: (final?.variants ?? []).length,
-      price_range_before: priceRange(original ?? {}),
-      price_range_after: priceRange(final ?? {}),
-      tags_before: original?.tags ?? [],
-      tags_after: final?.tags ?? [],
-      requested_rules: job.requested_rules ?? {},
-      effective_rules_snapshot: job.effective_rules_snapshot ?? {},
-      rule_summary: job.rule_summary ?? {},
-      warnings: job.warnings ?? [],
     };
 
-    const stockTotal = final?.total_inventory ?? sumVariantStock(final?.variants);
-    if (stockTotal != null) {
-      preview.stock_total = stockTotal;
-      preview.stock_low_warning = stockTotal > 0 && stockTotal < 5;
+    const titleBefore = original?.title ?? "";
+    const titleAfter = final?.title ?? "";
+    if (titleBefore !== titleAfter) {
+      preview.title_before = titleBefore;
+      preview.title_after = titleAfter;
+    } else {
+      preview.title = titleAfter;
     }
 
-    if (final?.variants?.length) {
-      preview.variant_preview = final.variants.map((v: any) => ({
-        title: v.title,
-        supplier_price: v.supplier_price,
-        offer_price: v.offer_price,
-        stock: v.stock ?? null,
-        sku: v.sku,
-      }));
+    const sell = rangeOf(variants, "offer_price");
+    const cost = rangeOf(variants, "supplier_price");
+    if (sell != null) preview.sell_price = sell;
+    if (cost != null) preview.cost = cost;
+    if (sell != null && cost != null && JSON.stringify(sell) === JSON.stringify(cost)) {
+      preview.no_markup = true;
     }
+
+    preview.variants_count = variants.length;
+    preview.images = (final?.images ?? []).length;
+
+    if ((original?.description_html ?? "") !== (final?.description_html ?? "")) {
+      preview.desc_changed = true;
+    }
+
+    const stockTotal = final?.total_inventory ?? sumVariantStock(variants);
+    if (stockTotal != null) {
+      preview.stock = stockTotal;
+      if (stockTotal > 0 && stockTotal < 5) preview.stock_low = true;
+    }
+
+    if (variants.length) {
+      preview.skus = [
+        ["name", "sell_price", "cost", "qty"],
+        ...variants.slice(0, MAX_VARIANTS).map((v: any) => [
+          v.title, v.offer_price, v.supplier_price, v.stock ?? null,
+        ]),
+      ];
+      if (variants.length > MAX_VARIANTS) preview.skus_more = variants.length - MAX_VARIANTS;
+    }
+
+    if (job.target_store) preview.store = job.target_store;
+    if (job.visibility_mode && job.visibility_mode !== "backend_only")
+      preview.visibility = job.visibility_mode;
+
+    const warns = [...new Set<string>(job.warnings ?? [])]
+      .map((w: string) => w.length > 100 ? w.slice(0, 97) + "..." : w)
+      .slice(0, 5);
+    if (warns.length) preview.warnings = warns;
+
     return preview;
   }
 }
