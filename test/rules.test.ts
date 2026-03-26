@@ -463,3 +463,85 @@ describe("variant_overrides application", () => {
     );
   });
 });
+
+describe("image rules — add_urls, reorder, drop warnings, URL validation", () => {
+  it("add_urls appends new images", () => {
+    const { draft, summary } = applyRules(
+      mkDraft([mkV(100, 200)]),
+      { images: { add_urls: ["https://example.com/new1.jpg", "https://example.com/new2.jpg"] } },
+    );
+    expect(draft.images).toEqual(["img1.jpg", "img2.jpg", "img3.jpg", "https://example.com/new1.jpg", "https://example.com/new2.jpg"]);
+    expect(summary.applied).toContainEqual(expect.objectContaining({ rule_family: "images", images_added: 2 }));
+  });
+
+  it("add_urls rejected if not http/https", () => {
+    const caps = { images: { supported: ["add_urls"] } };
+    const result = normalizeRules({ images: { add_urls: ["ftp://bad.jpg", "not-a-url"] } }, caps);
+    expect(result.errors?.length).toBeGreaterThan(0);
+    expect(result.errors![0]).toMatch(/not a valid URL/);
+  });
+
+  it("reorder rearranges images", () => {
+    const { draft } = applyRules(
+      mkDraft([mkV(100, 200)]),
+      { images: { reorder: [2, 0, 1] } },
+    );
+    expect(draft.images).toEqual(["img3.jpg", "img1.jpg", "img2.jpg"]);
+  });
+
+  it("reorder with partial indexes — unlisted images appended", () => {
+    const { draft } = applyRules(
+      mkDraft([mkV(100, 200)]),
+      { images: { reorder: [2] } },
+    );
+    expect(draft.images).toEqual(["img3.jpg", "img1.jpg", "img2.jpg"]);
+  });
+
+  it("pipeline order: drop → reorder → add → truncate", () => {
+    const { draft } = applyRules(
+      mkDraft([mkV(100, 200)]),
+      {
+        images: {
+          drop_indexes: [1],
+          reorder: [1, 0],
+          add_urls: ["https://example.com/extra.jpg"],
+          keep_first_n: 3,
+        },
+      },
+    );
+    expect(draft.images).toEqual(["img3.jpg", "img1.jpg", "https://example.com/extra.jpg"]);
+  });
+
+  it("drop_indexes out-of-range generates warning", () => {
+    const { summary } = applyRules(
+      mkDraft([mkV(100, 200)]),
+      { images: { drop_indexes: [0, 99] } },
+    );
+    expect(summary.warnings).toContainEqual(expect.stringContaining("index 99 is out of range"));
+  });
+
+  it("reorder out-of-range generates warning", () => {
+    const { summary } = applyRules(
+      mkDraft([mkV(100, 200)]),
+      { images: { reorder: [0, 50] } },
+    );
+    expect(summary.warnings).toContainEqual(expect.stringContaining("index 50 is out of range"));
+  });
+
+  it("variant_overrides image_url requires http/https", () => {
+    const caps = { variant_overrides: { supported: ["image_url"] } };
+    const result = normalizeRules({
+      variant_overrides: [{ match: "v1", image_url: "data:image/png;base64,abc" }],
+    }, caps);
+    expect(result.errors?.length).toBeGreaterThan(0);
+    expect(result.errors![0]).toMatch(/must be a valid URL/);
+  });
+
+  it("variant_overrides image_url accepts https", () => {
+    const caps = { variant_overrides: { supported: ["image_url"] } };
+    const result = normalizeRules({
+      variant_overrides: [{ match: "v1", image_url: "https://cdn.example.com/photo.jpg" }],
+    }, caps);
+    expect(result.errors ?? []).toHaveLength(0);
+  });
+});

@@ -8,7 +8,7 @@ const KNOWN_CONTENT_KEYS = new Set([
   "description_append_html",
   "tags_add",
 ]);
-const KNOWN_IMAGE_KEYS = new Set(["keep_first_n", "drop_indexes", "translate_image_text", "remove_logo"]);
+const KNOWN_IMAGE_KEYS = new Set(["keep_first_n", "drop_indexes", "add_urls", "reorder", "translate_image_text", "remove_logo"]);
 const DEFAULT_PRICING_MODES = new Set(["provider_default", "multiplier", "fixed_markup"]);
 
 function _allowedRuleKeys(capability: Record<string, any> | undefined, defaultKeys: Set<string>): Set<string> {
@@ -198,6 +198,45 @@ function _normalizeImages(
       if (indexes.length) normalized[key] = [...indexes].sort((a, b) => a - b);
       continue;
     }
+    if (key === "add_urls") {
+      if (value == null || (Array.isArray(value) && value.length === 0)) continue;
+      if (!Array.isArray(value)) {
+        errors.push("images.add_urls must be an array of URL strings.");
+        continue;
+      }
+      const urls: string[] = [];
+      for (const raw of value) {
+        const url = String(raw ?? "").trim();
+        if (!url) continue;
+        if (!/^https?:\/\//i.test(url)) {
+          errors.push(`images.add_urls: "${url.slice(0, 60)}" is not a valid URL (must start with http:// or https://).`);
+          urls.length = 0;
+          break;
+        }
+        urls.push(url);
+      }
+      if (urls.length) normalized[key] = urls;
+      continue;
+    }
+    if (key === "reorder") {
+      if (value == null || (Array.isArray(value) && value.length === 0)) continue;
+      if (!Array.isArray(value)) {
+        errors.push("images.reorder must be an array of index numbers representing the new order.");
+        continue;
+      }
+      const order: number[] = [];
+      for (const raw of value) {
+        const i = Number(raw);
+        if (!Number.isInteger(i) || i < 0) {
+          errors.push("images.reorder must contain only non-negative integers.");
+          order.length = 0;
+          break;
+        }
+        order.push(i);
+      }
+      if (order.length) normalized[key] = order;
+      continue;
+    }
     normalized[key] = Boolean(value);
   }
   return normalized;
@@ -251,9 +290,18 @@ function _normalizeVariantOverrides(
           continue;
         }
         normalized[key] = val;
-      } else if (key === "title" || key === "image_url") {
+      } else if (key === "title") {
         const sv = String(entry[key] ?? "").trim();
         if (sv) normalized[key] = sv;
+      } else if (key === "image_url") {
+        const sv = String(entry[key] ?? "").trim();
+        if (sv) {
+          if (!/^https?:\/\//i.test(sv)) {
+            errors.push(`variant_overrides[${i}].image_url must be a valid URL starting with http:// or https://.`);
+            continue;
+          }
+          normalized[key] = sv;
+        }
       }
     }
     if (Object.keys(normalized).length > 1) result.push(normalized);
@@ -370,19 +418,57 @@ function _applyContent(draft: Record<string, any>, content: Record<string, any>,
 }
 
 function _applyImages(draft: Record<string, any>, images: Record<string, any>, summary: Record<string, any>): void {
-  const imageList = [...(draft.images ?? [])];
+  let imageList = [...(draft.images ?? [])];
   const originalCount = imageList.length;
+
+  // Step 1: drop_indexes (descending to preserve positions)
   const dropIndexes = [...new Set((images.drop_indexes as number[]) ?? [])].sort((a: number, b: number) => b - a);
   for (const idx of dropIndexes) {
     const i = Number(idx);
-    if (i >= 0 && i < imageList.length) imageList.splice(i, 1);
+    if (i >= 0 && i < imageList.length) {
+      imageList.splice(i, 1);
+    } else if (i >= originalCount) {
+      summary.warnings.push(`images.drop_indexes: index ${i} is out of range (product has ${originalCount} images, valid range 0–${originalCount - 1}).`);
+    }
   }
+
+  // Step 2: reorder (remap by old index positions)
+  const reorder: number[] | undefined = images.reorder;
+  if (Array.isArray(reorder) && reorder.length) {
+    const snapshot = [...imageList];
+    const reordered: string[] = [];
+    for (const idx of reorder) {
+      if (idx >= 0 && idx < snapshot.length) {
+        reordered.push(snapshot[idx]);
+      } else {
+        summary.warnings.push(`images.reorder: index ${idx} is out of range (${snapshot.length} images after drops). Skipped.`);
+      }
+    }
+    const usedSet = new Set(reorder.filter(i => i >= 0 && i < snapshot.length));
+    for (let i = 0; i < snapshot.length; i++) {
+      if (!usedSet.has(i)) reordered.push(snapshot[i]);
+    }
+    imageList = reordered;
+  }
+
+  // Step 3: add_urls (append new images)
+  const addUrls: string[] | undefined = images.add_urls;
+  if (Array.isArray(addUrls) && addUrls.length) {
+    imageList.push(...addUrls);
+  }
+
+  // Step 4: keep_first_n (truncate)
   const keepFirstN = images.keep_first_n;
   const final = keepFirstN != null ? imageList.slice(0, keepFirstN) : imageList;
+
   if (images.translate_image_text) summary.warnings.push("translate_image_text is not auto-applied in this MVP.");
   if (images.remove_logo) summary.warnings.push("remove_logo is not auto-applied in this MVP.");
   draft.images = final;
-  summary.applied.push({ rule_family: "images", image_count_before: originalCount, image_count_after: final.length });
+  const details: Record<string, any> = { rule_family: "images", image_count_before: originalCount, image_count_after: final.length };
+  if (addUrls?.length) details.images_added = addUrls.length;
+  if (reorder?.length) details.reordered = true;
+  if (dropIndexes.length) details.images_dropped = originalCount - (imageList.length - (addUrls?.length ?? 0));
+  summary.applied.push(details);
 }
 
 function _applyVariantOverrides(

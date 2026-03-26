@@ -154,7 +154,7 @@ export class PrivateDsersProvider implements ImportProvider {
           unsupported: ["tags_add"],
         },
         images: {
-          supported: ["keep_first_n", "drop_indexes"],
+          supported: ["keep_first_n", "drop_indexes", "add_urls", "reorder"],
           unsupported: ["translate_image_text", "remove_logo"],
         },
         variant_overrides: {
@@ -1498,8 +1498,9 @@ export class PrivateDsersProvider implements ImportProvider {
 
       if (ttlKey) rawVariant[ttlKey] = normalized.title;
       if (skuKey) rawVariant[skuKey] = normalized.sku;
-      if (imageKey && normalized.image_url)
-        rawVariant[imageKey] = normalized.image_url;
+      if (normalized.image_url) {
+        rawVariant[imageKey ?? "imageUrl"] = normalized.image_url;
+      }
 
       const stockKey = firstMatchingKey(rawVariant, [
         "stock", "quantity", "inventory", "availableStock", "skuStock",

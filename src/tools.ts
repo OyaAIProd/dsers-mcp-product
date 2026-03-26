@@ -130,6 +130,20 @@ export function registerTools(
         "description_override_html replaces the full description (HTML string). " +
         "description_append_html appends HTML after the original. tags_add is an array of strings (e.g. [\"summer\",\"sale\"]). NOTE: tags are applied to the draft but NOT persisted to DSers in the current version — they will be sent during push to Shopify. " +
         "Content rules are cumulative with pricing rules — include both in one rules_json if needed. " +
+        "IMAGE RULES (via rules_json images key): " +
+        "Pipeline order: drop_indexes (delete) → reorder (rearrange) → add_urls (append new) → keep_first_n (truncate). " +
+        "drop_indexes: array of 0-based indexes to remove. " +
+        "reorder: array of old indexes in desired new order, e.g. [2,0,1] moves 3rd image to 1st position. " +
+        "  Images not listed in reorder are appended after the listed ones in their original order. " +
+        "add_urls: array of public image URLs (must start with http:// or https://) to append to the gallery. " +
+        "keep_first_n: truncate to first N images after all other operations. " +
+        "images[0] becomes the main/hero image on Shopify. " +
+        "IMAGE UPLOAD WORKFLOW: This tool only accepts image URLs — NOT base64 or binary data (would exceed token limits). " +
+        "If the user wants to add custom images: " +
+        "1) Guide them to upload the image through the app's UI or to an image hosting service first. " +
+        "2) Once they have a public URL (https://...), pass it via images.add_urls or variant_overrides.image_url. " +
+        "3) NEVER attempt to send raw image data through the conversation — it will fail or crash the context. " +
+        "Per-variant images: use variant_overrides with image_url field to set a specific variant's image. " +
         "RESPONSE FORMAT: " +
         "- title: product title (string). If content rules changed the title, returns title_before + title_after instead. " +
         "- sell_price: store listing price in dollars (number or {min,max} range). " +
@@ -208,7 +222,9 @@ export function registerTools(
             "Optional rules as JSON string applied to all items. " +
               "Keys: pricing ({mode, multiplier, fixed_markup, round_digits}), " +
               "content ({title_override, title_prefix, title_suffix, description_override_html, description_append_html, tags_add:[\"tag1\",\"tag2\"]}), " +
-              "images ({keep_first_n, drop_indexes}) — WARNING: image deletion via drop_indexes is IRREVERSIBLE once pushed; confirm with user before removing images, " +
+              "images ({keep_first_n, drop_indexes, add_urls, reorder}) — " +
+              "add_urls: array of public http/https URLs to add. reorder: array of indexes for new order. " +
+              "WARNING: image deletion via drop_indexes is IRREVERSIBLE once pushed; confirm with user before removing images, " +
               "variant_overrides (array of per-variant patches). " +
               "fixed_markup is in dollars (e.g. 5.00 = add $5 to cost). multiplier is a ratio (e.g. 2.0 = 2x cost). " +
               "VARIANT_OVERRIDES: Each entry has 'match' (substring to match variant title or SKU) and optional " +
