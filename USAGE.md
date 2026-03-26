@@ -10,7 +10,7 @@
 
 ### Prerequisites
 
-- **Node.js** >= 18.0.0
+- **Node.js** >= 22.0.0
 - **DSers account** with at least one connected Shopify store
 - **MCP-compatible client**: Cursor, Claude Desktop, or any MCP host
 
@@ -164,7 +164,7 @@ A: The rules are applied at prepare time. To change rules, call `dsers.product.i
 
 ### 前提条件
 
-- **Node.js** >= 18.0.0
+- **Node.js** >= 22.0.0
 - **DSers 账户**，至少连接了一个 Shopify 店铺
 - **MCP 兼容客户端**：Cursor、Claude Desktop 或任何 MCP 宿主
 
