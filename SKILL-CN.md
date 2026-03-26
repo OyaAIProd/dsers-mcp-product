@@ -19,10 +19,9 @@ npx @lofder/dsers-mcp-product login
 Session 有效期约 **6 小时**，过期后工具会返回错误提示。
 
 **凭据来源优先级：**
-1. HTTP headers `x-dsers-email` / `x-dsers-password` — Smithery 自动设置
-2. 环境变量 `DSERS_TOKEN` — 加密 token 字符串
-3. 本地凭据文件 `~/.dsers-mcp/credentials` — login 命令生成（推荐）
-4. 环境变量 `DSERS_EMAIL` / `DSERS_PASSWORD` — 旧方式，仍支持
+1. 本地凭据文件 `~/.dsers-mcp/credentials` — login 命令生成（推荐）
+2. 环境变量 `DSERS_TOKEN` — 加密 token 字符串（headless/CI）
+3. OAuth access token (Bearer) — Vercel Remote MCP / Smithery 自动设置
 
 ### Agent 认证决策树
 
@@ -44,7 +43,7 @@ Session 有效期约 **6 小时**，过期后工具会返回错误提示。
 **场景 4：Login 命令失败**
 - 浏览器打不开：工具会自动尝试 Safari（macOS）或终端输入。
 - 终端输入失败：密码输错了，最多重试 3 次。
-- 全部失败：建议用户设置 `DSERS_EMAIL` + `DSERS_PASSWORD` 环境变量作为备选。
+- 全部失败：建议用户设置 `DSERS_TOKEN` 环境变量作为备选，或在有浏览器的设备上重新运行 `login`。
 
 **场景 5：主动检查认证**
 - 在任何工作流开始前先调用 `dsers.store.discover`。如果成功说明认证有效，如果报错先处理认证再继续。

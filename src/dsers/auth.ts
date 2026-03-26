@@ -45,7 +45,7 @@ export class DSersAuth {
       throw new Error(
         "DSers credentials not configured.\n" +
         "Recommended: run 'npx @lofder/dsers-mcp-product login' to authenticate via browser.\n" +
-        "Alternative: set DSERS_EMAIL and DSERS_PASSWORD environment variables.",
+        "If browser login is not available, set DSERS_TOKEN environment variable.",
       );
     }
 

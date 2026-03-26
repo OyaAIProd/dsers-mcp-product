@@ -24,27 +24,16 @@ npm install
 
 ### Configuration
 
-Copy `.env.example` to `.env` and fill in your DSers credentials:
-
-```bash
-cp .env.example .env
-```
-
-Required variables:
-
-| Variable | Description |
-|----------|-------------|
-| `DSERS_EMAIL` | Your DSers account email |
-| `DSERS_PASSWORD` | Your DSers account password |
+Run `npx @lofder/dsers-mcp-product login` to authenticate via browser (recommended). No passwords in config files.
 
 ### How Credentials Work
 
-All connection methods require your DSers account email and password. The server resolves credentials in this order:
+The server resolves credentials in this order:
 
 | Priority | Source | When to use |
 |----------|--------|-------------|
-| 1 | HTTP headers `x-dsers-email` / `x-dsers-password` | Smithery, remote MCP proxy, or direct HTTP calls |
-| 2 | Environment variables `DSERS_EMAIL` / `DSERS_PASSWORD` | Local stdio via Cursor, Claude Desktop, or shell |
+| 1 | Local credentials file `~/.dsers-mcp/credentials` | Created by `login` command (recommended) |
+| 2 | Environment variable `DSERS_TOKEN` | Headless / CI environments |
 
 If credentials are missing, every tool call returns an error listing all available options.
 
@@ -62,21 +51,11 @@ Or for Claude Desktop:
 npx @smithery/cli mcp add @dsersx/product-mcp --client claude
 ```
 
-You'll be prompted to enter your DSers credentials during setup. Smithery passes them to the server automatically — no local clone needed.
+You'll be prompted to enter your DSers session credentials during setup. Smithery passes them to the server automatically — no local clone needed.
 
-### Connect to Hosted Server (Direct HTTP)
+### Connect to Hosted Server (Remote MCP)
 
-The server is deployed at `https://dsers-mcp-product.vercel.app/api/mcp` (Streamable HTTP transport).
-
-Pass your DSers credentials as HTTP headers on every request:
-
-| Header | Required | Value |
-|--------|----------|-------|
-| `x-dsers-email` | Yes | Your DSers account email |
-| `x-dsers-password` | Yes | Your DSers account password |
-| `x-dsers-env` | No | `production` (default) or `test` |
-
-Any MCP client that supports remote Streamable HTTP servers can connect using this URL with the headers above.
+The server is deployed at `https://dsers-mcp-product.vercel.app/api/mcp` (Streamable HTTP with OAuth). Authentication is handled via the OAuth flow — no manual headers needed.
 
 ### Cursor Configuration (Local)
 
@@ -87,11 +66,7 @@ Add to your Cursor MCP settings (`.cursor/mcp.json`):
   "mcpServers": {
     "dsers-mcp-product": {
       "command": "npx",
-      "args": ["@smithery/cli", "dev", "/path/to/dsers-mcp-product/src/index.ts"],
-      "env": {
-        "DSERS_EMAIL": "your-email@example.com",
-        "DSERS_PASSWORD": "your-password"
-      }
+      "args": ["-y", "@lofder/dsers-mcp-product"]
     }
   }
 }
@@ -106,11 +81,7 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "dsers-mcp-product": {
       "command": "npx",
-      "args": ["@smithery/cli", "dev", "/path/to/dsers-mcp-product/src/index.ts"],
-      "env": {
-        "DSERS_EMAIL": "your-email@example.com",
-        "DSERS_PASSWORD": "your-password"
-      }
+      "args": ["-y", "@lofder/dsers-mcp-product"]
     }
   }
 }
@@ -125,11 +96,7 @@ Add to `~/.openclaw/openclaw.json`:
   "mcpServers": {
     "dsers-mcp-product": {
       "command": "npx",
-      "args": ["@smithery/cli", "dev", "/path/to/dsers-mcp-product/src/index.ts"],
-      "env": {
-        "DSERS_EMAIL": "your-email@example.com",
-        "DSERS_PASSWORD": "your-password"
-      }
+      "args": ["-y", "@lofder/dsers-mcp-product"]
     }
   }
 }
@@ -211,20 +178,16 @@ npm install
 
 ### 配置
 
-复制 `.env.example` 到 `.env` 并填入你的 DSers 账户信息：
-
-```bash
-cp .env.example .env
-```
+运行 `npx @lofder/dsers-mcp-product login` 通过浏览器认证（推荐）。配置文件里不需要写任何密码。
 
 ### 凭据说明
 
-所有连接方式都需要 DSers 账户邮箱和密码。服务端按以下优先级读取凭据：
+服务端按以下优先级读取凭据：
 
 | 优先级 | 来源 | 适用场景 |
 |--------|------|----------|
-| 1 | HTTP header `x-dsers-email` / `x-dsers-password` | Smithery、远程 MCP 代理、直接 HTTP 调用 |
-| 2 | 环境变量 `DSERS_EMAIL` / `DSERS_PASSWORD` | 本地 stdio（Cursor、Claude Desktop、命令行） |
+| 1 | 本地凭据文件 `~/.dsers-mcp/credentials` | `login` 命令生成（推荐） |
+| 2 | 环境变量 `DSERS_TOKEN` | headless / CI 环境 |
 
 如果凭据缺失，所有工具调用会返回错误提示，列出所有可用的配置方式。
 
@@ -236,21 +199,11 @@ cp .env.example .env
 npx @smithery/cli mcp add @dsersx/product-mcp --client cursor
 ```
 
-安装时会提示输入 DSers 账户信息，Smithery 会自动将凭据传给服务端 —— 无需本地克隆代码。
+安装时会提示输入 DSers session 凭据，Smithery 会自动将凭据传给服务端 —— 无需本地克隆代码。
 
-### 连接远程托管服务（直接 HTTP）
+### 连接远程托管服务（Remote MCP）
 
-服务已部署在 `https://dsers-mcp-product.vercel.app/api/mcp`（Streamable HTTP 传输协议）。
-
-每次请求需携带以下 HTTP header：
-
-| Header | 必填 | 值 |
-|--------|------|-----|
-| `x-dsers-email` | 是 | DSers 账户邮箱 |
-| `x-dsers-password` | 是 | DSers 账户密码 |
-| `x-dsers-env` | 否 | `production`（默认）或 `test` |
-
-任何支持远程 Streamable HTTP 的 MCP 客户端都可以使用此 URL 加上述 header 连接。
+服务已部署在 `https://dsers-mcp-product.vercel.app/api/mcp`（Streamable HTTP + OAuth）。认证通过 OAuth 流程自动完成，无需手动设置 header。
 
 ### Cursor 配置（本地）
 
@@ -261,11 +214,7 @@ npx @smithery/cli mcp add @dsersx/product-mcp --client cursor
   "mcpServers": {
     "dsers-mcp-product": {
       "command": "npx",
-      "args": ["@smithery/cli", "dev", "/path/to/dsers-mcp-product/src/index.ts"],
-      "env": {
-        "DSERS_EMAIL": "your-email@example.com",
-        "DSERS_PASSWORD": "your-password"
-      }
+      "args": ["-y", "@lofder/dsers-mcp-product"]
     }
   }
 }
@@ -280,11 +229,7 @@ npx @smithery/cli mcp add @dsersx/product-mcp --client cursor
   "mcpServers": {
     "dsers-mcp-product": {
       "command": "npx",
-      "args": ["@smithery/cli", "dev", "/path/to/dsers-mcp-product/src/index.ts"],
-      "env": {
-        "DSERS_EMAIL": "your-email@example.com",
-        "DSERS_PASSWORD": "your-password"
-      }
+      "args": ["-y", "@lofder/dsers-mcp-product"]
     }
   }
 }

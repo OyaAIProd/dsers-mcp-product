@@ -35,7 +35,11 @@ function AuthorizeForm() {
           DSers MCP Product
         </h1>
         <p style={{ fontSize: 14, margin: "0 0 24px", opacity: 0.7 }}>
-          Sign in with your DSers account to authorize access.
+          Paste your DSers session to authorize access. Run{" "}
+          <code style={{ background: "#0e1618", padding: "2px 6px", borderRadius: 4, fontSize: 13 }}>
+            npx @lofder/dsers-mcp-product login
+          </code>{" "}
+          in terminal, then copy the session from the output.
         </p>
 
         <input type="hidden" name="redirect_uri" value={redirectUri} />
@@ -44,13 +48,13 @@ function AuthorizeForm() {
         <input type="hidden" name="client_id" value={clientId} />
 
         <label style={{ display: "block", fontSize: 13, marginBottom: 6 }}>
-          DSers Email
+          DSers Session ID
         </label>
         <input
-          name="email"
-          type="email"
+          name="session_id"
+          type="text"
           required
-          autoComplete="email"
+          placeholder="e.g. abc123def456..."
           style={{
             width: "100%",
             padding: "10px 12px",
@@ -65,13 +69,13 @@ function AuthorizeForm() {
         />
 
         <label style={{ display: "block", fontSize: 13, marginBottom: 6 }}>
-          DSers Password
+          DSers State
         </label>
         <input
-          name="password"
-          type="password"
+          name="dsers_state"
+          type="text"
           required
-          autoComplete="current-password"
+          placeholder="e.g. xyz789..."
           style={{
             width: "100%",
             padding: "10px 12px",
@@ -103,8 +107,8 @@ function AuthorizeForm() {
         </button>
 
         <p style={{ fontSize: 12, marginTop: 16, opacity: 0.5, textAlign: "center" }}>
-          Your credentials are encrypted and stored only in the access token.
-          No data is persisted on our servers.
+          Session credentials are encrypted and stored only in the access token.
+          No data is persisted on our servers. Sessions expire after ~6 hours.
         </p>
       </form>
     </div>

@@ -1,28 +1,18 @@
 {
   "type": "object",
-  "required": ["dsers_email", "dsers_password"],
+  "required": ["dsers_session_id", "dsers_state"],
   "properties": {
-    "dsers_email": {
+    "dsers_session_id": {
       "type": "string",
-      "title": "DSers Email",
-      "description": "DSers account email address used for authentication",
-      "x-order": 0,
-      "x-from": { "header": "x-dsers-email" }
+      "title": "DSers Session ID",
+      "description": "DSers session ID. Run 'npx @lofder/dsers-mcp-product login' to get it.",
+      "x-order": 0
     },
-    "dsers_password": {
+    "dsers_state": {
       "type": "string",
-      "title": "DSers Password",
-      "description": "DSers account password",
-      "x-order": 1,
-      "x-from": { "header": "x-dsers-password" }
-    },
-    "dsers_env": {
-      "type": "string",
-      "title": "Environment",
-      "description": "API environment (production or test)",
-      "default": "production",
-      "x-order": 2,
-      "x-from": { "header": "x-dsers-env" }
+      "title": "DSers State",
+      "description": "DSers state token (obtained together with session ID)",
+      "x-order": 1
     },
     "default_country": {
       "type": "string",

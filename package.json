@@ -32,17 +32,14 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "build:vercel": "next build",
-    "dev": "npx @smithery/cli dev ./src/index.ts",
-    "dev:vercel": "next dev",
-    "playground": "npx @smithery/cli playground ./src/index.ts"
+    "build:vercel": "next build --webpack",
+    "dev:vercel": "next dev"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@smithery/cli": "^4.7.0",
     "@smithery/sdk": "^4.3.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.14",

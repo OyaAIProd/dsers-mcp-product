@@ -12,9 +12,9 @@ function getKey(): Buffer | null {
 }
 
 export interface TokenPayload {
-  email: string;
-  password: string;
-  env: string;
+  session_id: string;
+  dsers_state: string;
+  base_url: string;
   exp: number;
 }
 
@@ -46,7 +46,7 @@ export function decrypt(token: string): TokenPayload | null {
     decipher.setAuthTag(tag);
     const plaintext = Buffer.concat([decipher.update(ct), decipher.final()]).toString("utf8");
     const payload = JSON.parse(plaintext) as TokenPayload;
-    if (!payload.email || !payload.password) return null;
+    if (!payload.session_id || !payload.dsers_state) return null;
     if (payload.exp && Date.now() > payload.exp) return null;
     return payload;
   } catch (_decryptErr: unknown) {
@@ -55,15 +55,15 @@ export function decrypt(token: string): TokenPayload | null {
 }
 
 export function generateCode(
-  email: string,
-  password: string,
-  env: string,
+  sessionId: string,
+  dsersState: string,
+  baseUrl: string,
   codeChallenge: string,
 ): string | null {
   const payload: TokenPayload & { code_challenge: string } = {
-    email,
-    password,
-    env,
+    session_id: sessionId,
+    dsers_state: dsersState,
+    base_url: baseUrl,
     exp: Date.now() + 10 * 60 * 1000, // 10 min
     code_challenge: codeChallenge,
   };
@@ -96,7 +96,7 @@ export function decryptCode(
     decipher.setAuthTag(tag);
     const plaintext = Buffer.concat([decipher.update(ct), decipher.final()]).toString("utf8");
     const payload = JSON.parse(plaintext);
-    if (!payload.email || !payload.code_challenge) return null;
+    if (!payload.session_id || !payload.code_challenge) return null;
     if (payload.exp && Date.now() > payload.exp) return null;
     return payload;
   } catch (_decodeErr: unknown) {

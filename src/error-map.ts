@@ -102,7 +102,7 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
         "npx @lofder/dsers-mcp-product login — this will open the DSers website in your browser. " +
         "You log in there directly, your password never passes through me. Takes about 30 seconds.' " +
         "Wait for the user to confirm login is done, then retry. " +
-        "If the user is on a headless server (no browser), suggest setting DSERS_EMAIL and DSERS_PASSWORD env vars.",
+        "If the user is on a headless server (no browser), suggest setting DSERS_TOKEN env var.",
     },
   ],
   [
@@ -260,7 +260,7 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
       cause: "The DSers API rejected the login request (wrong credentials or account issue).",
       action:
         "Ask the user to run 'npx @lofder/dsers-mcp-product login' to re-authenticate via browser. " +
-        "If using env vars, verify DSERS_EMAIL and DSERS_PASSWORD are correct.",
+        "If using env vars, verify DSERS_TOKEN is correct and not expired.",
     },
   ],
   [

@@ -51,10 +51,10 @@ export async function POST(request: Request) {
     }
 
     const accessToken = encrypt({
-      email: payload.email,
-      password: payload.password,
-      env: payload.env,
-      exp: Date.now() + 24 * 60 * 60 * 1000, // 24h
+      session_id: payload.session_id,
+      dsers_state: payload.dsers_state,
+      base_url: payload.base_url,
+      exp: Date.now() + 6 * 60 * 60 * 1000, // 6h
     });
 
     if (!accessToken) {
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       access_token: accessToken,
       token_type: "Bearer",
-      expires_in: 86400,
+      expires_in: 21600,
       scope: "mcp",
     });
   } catch {

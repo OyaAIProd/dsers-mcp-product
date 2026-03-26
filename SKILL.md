@@ -9,10 +9,9 @@ description: Automate DSers product import from AliExpress/Alibaba/Accio to Shop
 
 ### Credential resolution (priority order)
 
-1. **HTTP headers** `x-dsers-email` / `x-dsers-password` — automatic on Smithery / MCP proxy
-2. **Environment variable** `DSERS_TOKEN` — encrypted token string (advanced)
-3. **Local credentials file** `~/.dsers-mcp/credentials` — created by `login` command (recommended)
-4. **Environment variables** `DSERS_EMAIL` / `DSERS_PASSWORD` — legacy, still supported
+1. **Local credentials file** `~/.dsers-mcp/credentials` — created by `login` command (recommended)
+2. **Environment variable** `DSERS_TOKEN` — encrypted token string (headless/CI)
+3. **OAuth access token** (Bearer) — automatic on Vercel Remote MCP / Smithery
 
 ### Session lifetime
 
@@ -29,7 +28,7 @@ Use this logic every time you encounter an auth-related issue:
   2. Ask them to open their terminal and run: `npx @lofder/dsers-mcp-product login`
   3. Reassure them: "This opens the official DSers website in your browser. You log in there directly — your password never passes through this tool. It takes about 30 seconds."
   4. After they confirm login is done, retry your tool call.
-- If login reports "No Chromium browser found" and then "No TTY available": the user is on a headless server. Suggest setting `DSERS_EMAIL` and `DSERS_PASSWORD` environment variables as a fallback.
+- If login reports "No Chromium browser found" and then "No TTY available": the user is on a headless server. Suggest setting `DSERS_TOKEN` environment variable as a fallback.
 
 **Scenario 2: "DSers session expired"**
 - Meaning: A session existed but is no longer valid (expired after ~6 hours, or DSers server invalidated it).
@@ -48,7 +47,7 @@ Use this logic every time you encounter an auth-related issue:
 - "Browser launch failed": Chrome/Edge/Brave is not installed or cannot be opened. The tool will automatically fall back to Safari (macOS) or terminal prompt.
 - "Could not read session cookie": The browser opened but the session wasn't detected. The user should make sure they completed the DSers login (reached the dashboard, not just the login form).
 - "Terminal login failed": Wrong email/password entered in the terminal fallback. The user can retry (up to 3 attempts).
-- If all methods fail: suggest `DSERS_EMAIL` + `DSERS_PASSWORD` env vars as the last resort.
+- If all methods fail: suggest `DSERS_TOKEN` env var as the last resort, or ask the user to retry `login` on a machine with a browser.
 
 **Scenario 5: Proactive auth check**
 - Call `dsers.store.discover` at the start of any workflow. If it succeeds, auth is valid. If it returns an auth error, handle it BEFORE attempting imports or pushes.

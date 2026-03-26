@@ -102,25 +102,6 @@ A browser window opens to the official DSers login page. You log in on DSers's o
 
 That's it. No passwords in config files.
 
-**Alternative: environment variables (legacy)**
-
-If you prefer, you can still use environment variables:
-
-```json
-{
-  "mcpServers": {
-    "dsers-mcp-product": {
-      "command": "npx",
-      "args": ["-y", "@lofder/dsers-mcp-product"],
-      "env": {
-        "DSERS_EMAIL": "your-email",
-        "DSERS_PASSWORD": "your-password"
-      }
-    }
-  }
-}
-```
-
 Also listed on the official [MCP Registry](https://registry.modelcontextprotocol.io/servers/io.github.lofder/dsers-mcp-product).
 
 ### Authentication — Zero-Password Login
@@ -144,7 +125,7 @@ npx @lofder/dsers-mcp-product logout
 npx @lofder/dsers-mcp-product login
 ```
 
-> **For developers:** The server also accepts credentials via HTTP headers (Smithery auto-injects these), a `DSERS_TOKEN` env var, or the legacy `DSERS_EMAIL` + `DSERS_PASSWORD` env vars. For most users, just use `login`.
+> **For developers:** The server also accepts a `DSERS_TOKEN` env var for headless/CI environments. For most users, just use `login`.
 
 ### Usage Examples
 
@@ -254,8 +235,6 @@ Ready-made workflows your AI client can use directly:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DSERS_EMAIL` | No* | DSers account email (*not needed if using `login` command) |
-| `DSERS_PASSWORD` | No* | DSers account password (*not needed if using `login` command) |
 | `DSERS_ENV` | No | `production` (default) or `test` |
 | `DSERS_BASE_URL` | No | Override API base URL |
 | `IMPORT_MCP_STATE_DIR` | No | Job state directory (default: `.state`) |
@@ -369,25 +348,6 @@ npx @lofder/dsers-mcp-product login
 
 搞定。配置文件里不需要任何密码。
 
-**备选方式：环境变量（旧方式）**
-
-也可以用环境变量：
-
-```json
-{
-  "mcpServers": {
-    "dsers-mcp-product": {
-      "command": "npx",
-      "args": ["-y", "@lofder/dsers-mcp-product"],
-      "env": {
-        "DSERS_EMAIL": "your-email",
-        "DSERS_PASSWORD": "your-password"
-      }
-    }
-  }
-}
-```
-
 同时已收录到官方 [MCP Registry](https://registry.modelcontextprotocol.io/servers/io.github.lofder/dsers-mcp-product)。
 
 ### 授权认证 — 零密码登录
@@ -411,7 +371,7 @@ npx @lofder/dsers-mcp-product logout
 npx @lofder/dsers-mcp-product login
 ```
 
-> **开发者注：** 也支持通过 HTTP headers（Smithery 自动注入）、`DSERS_TOKEN` 环境变量、或旧的 `DSERS_EMAIL` + `DSERS_PASSWORD` 环境变量传入凭据。普通用户直接用 `login` 就行。
+> **开发者注：** headless / CI 环境也支持通过 `DSERS_TOKEN` 环境变量传入凭据。普通用户直接用 `login` 就行。
 
 ### 使用示例
 

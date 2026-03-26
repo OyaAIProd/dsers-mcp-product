@@ -143,7 +143,7 @@ async function startServer() {
     process.stderr.write(
       "Warning: No DSers credentials found.\n" +
       "Run 'npx @lofder/dsers-mcp-product login' to authenticate.\n" +
-      "Or set DSERS_EMAIL and DSERS_PASSWORD environment variables.\n\n",
+      "Or set DSERS_TOKEN environment variable for headless environments.\n\n",
     );
   }
 
