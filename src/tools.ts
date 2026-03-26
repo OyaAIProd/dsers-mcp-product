@@ -41,16 +41,17 @@ export function registerTools(
     {
       title: "DSers Store & Rule Discovery",
       description:
-        "Retrieve available stores, supported rule families (pricing, content, images), push options, and visibility modes for the connected DSers account. " +
-        "Call this first before any other tool — the response contains store IDs, shipping profiles, and configuration constraints needed by all subsequent operations. " +
-        "Returns: provider_label, source_support (aliexpress/alibaba), stores (each with store_ref, display_name, platform, shipping_profiles), rule_families, push_options, notes, account_info (plan limits).",
+        "Retrieve available stores and supported rules for the connected DSers account. " +
+        "Call this first — the response contains store IDs and configuration needed by all subsequent operations. " +
+        "Returns: stores (each with id, name, platform, ship[]), rules (pricing modes, content, images). " +
+        "ae_expired/plan_issue only appear if there is a problem.",
       inputSchema: {
         target_store: z
           .string()
           .optional()
           .describe(
-            "Store ID or display name to filter capabilities for a specific store. " +
-              "Omit to see all linked stores. Use the store_ref or display_name from this response in later calls.",
+            "Store ID or name to filter capabilities for a specific store. " +
+              "Omit to see all linked stores. Use the id or name from this response in later calls.",
           ),
       },
       annotations: {
@@ -115,20 +116,34 @@ export function registerTools(
       description:
         "Import product(s) from supplier URL(s) into the DSers import list and return a preview. " +
         "Supports AliExpress, Alibaba, and Accio.com URLs. " +
-        "Single: source_url. Batch: source_urls_json. Re-apply rules: job_id + rules_json. " +
-        "PRICE SEMANTICS: sell_price = the store listing price customers pay (maps to Shopify 'price'). " +
-        "cost = supplier purchase price (AliExpress/Alibaba). Absent if source has no separate cost field. " +
-        "no_markup=true when sell_price equals cost (no profit margin set). " +
-        "Use rules_json with pricing.mode=multiplier or fixed_markup to set profitable sell prices. " +
-        "skus format: first row is header [name, sell_price, cost, qty], rest are data rows. " +
-        "Returns: job_id, status, title, sell_price, cost, no_markup, variants_count, images, skus, stock, warnings.",
+        "THREE MODES: " +
+        "(1) New import — provide source_url (single) or source_urls_json (batch). " +
+        "(2) Re-apply rules — provide job_id + rules_json to update pricing/content without re-importing. " +
+        "(3) Refresh preview — provide job_id alone (no rules_json) to reload current state. " +
+        "EXPIRED/LOST JOB_ID: If a job_id returns 'expired' or 'Unknown job_id', call this tool again " +
+        "with the original source_url. DSers will locate the existing draft in the import list automatically " +
+        "(no duplicate is created). Then apply rules to the new job_id. " +
+        "MODIFYING IMPORTED PRODUCTS: To change an already-imported product when you don't have the job_id, " +
+        "re-import it with source_url + rules_json. DSers finds the existing draft. " +
+        "CONTENT RULES (via rules_json content key): " +
+        "title_override replaces the entire title. title_prefix/title_suffix wrap the original title. " +
+        "description_override_html replaces the full description (HTML string). " +
+        "description_append_html appends HTML after the original. tags_add is a comma-separated tag string. " +
+        "Content rules are cumulative with pricing rules — include both in one rules_json if needed. " +
+        "PRICE SEMANTICS: sell_price = store listing price (Shopify 'price'). " +
+        "cost = supplier purchase price. no_markup=true when sell_price equals cost. " +
+        "skus: header [name, sell, compare_at, cost, qty, supplier_qty], then data rows. " +
+        "Returns: job_id, status, title, sell_price, compare_at_price, cost, no_markup, variants_count, " +
+        "images, skus, stock, supplier_stock, ship_to, ship_from, warnings.",
       inputSchema: {
         job_id: z
           .string()
           .optional()
           .describe(
             "Re-apply mode: provide a job_id from a previous import together with rules_json to update rules " +
-              "without re-importing from the supplier. The original draft is preserved and new rules are applied on top.",
+              "without re-importing from the supplier. The original draft is preserved and new rules are applied on top. " +
+              "If the job has expired (server restart), the draft is auto-recovered from DSers. " +
+              "If recovery fails, re-import with source_url instead.",
           ),
         source_url: z
           .string()
@@ -179,8 +194,14 @@ export function registerTools(
             "Optional rules as JSON string applied to all items. " +
               "Keys: pricing ({mode, multiplier, fixed_markup, round_digits}), " +
               "content ({title_override, title_prefix, title_suffix, description_override_html, description_append_html, tags_add}), " +
-              "images ({keep_first_n, drop_indexes}). " +
-              'Example: {"pricing": {"mode": "fixed_markup", "fixed_markup": 5.00}}',
+              "images ({keep_first_n, drop_indexes}), " +
+              "variant_overrides (array of per-variant patches). " +
+              "fixed_markup is in dollars (e.g. 5.00 = add $5 to cost). multiplier is a ratio (e.g. 2.0 = 2x cost). " +
+              "VARIANT_OVERRIDES: Each entry has 'match' (substring to match variant title or SKU) and optional " +
+              "sell_price (dollars), compare_at_price (dollars), stock (integer), title (string). " +
+              "Applied AFTER global pricing, so overrides take priority. " +
+              'Example: {"pricing":{"mode":"multiplier","multiplier":2.5},' +
+              '"variant_overrides":[{"match":"Green","sell_price":12.99,"compare_at_price":19.99}]}',
           ),
       },
       annotations: {
@@ -254,9 +275,10 @@ export function registerTools(
     {
       title: "Import Draft Preview",
       description:
-        "Reload preview for an import job. Same response as dsers.product.import. " +
-        "sell_price = store listing price (customer pays, = Shopify price field), cost = supplier purchase price. " +
-        "cost absent if source has no separate cost. no_markup=true when sell_price equals cost.",
+        "Reload preview for an import job. Same response shape as dsers.product.import. " +
+        "sell_price = store listing price, compare_at_price = strikethrough/original price, cost = supplier price. " +
+        "ship_to = destination country, ship_from = origin country. " +
+        "stock = store inventory, supplier_stock = actual supplier inventory (may differ).",
       inputSchema: {
         job_id: z
           .string()
@@ -435,9 +457,8 @@ export function registerTools(
       title: "Import / Push Job Status Tracker",
       description:
         "Check the current status of an import or push job. " +
-        "Status lifecycle: preview_ready (after prepare) -> push_requested (after confirm) -> completed or failed. " +
-        "Call this to monitor push progress or verify a job's state before further action. " +
-        "Returns: job_id, status, created_at, updated_at, target_store, visibility_mode, warnings, has_push_result.",
+        "Status lifecycle: preview_ready → push_requested → completed or failed. " +
+        "Returns: job_id, status, target_store, push_status (if pushed), warnings.",
       inputSchema: {
         job_id: z
           .string()

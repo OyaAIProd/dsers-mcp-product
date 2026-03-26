@@ -14,24 +14,24 @@ describe("validatePushSafety", () => {
 
   describe("price display (dollars not cents)", () => {
     it("$5.99 should NOT show $0.06 in messages", () => {
-      const r = validatePushSafety(mkDraft([mkVariant(5.99, 3.0)]));
+      const r = validatePushSafety(mkDraft([mkVariant(599, 300)]));
       const all = [...r.blocked, ...r.warnings].join(" ");
       expect(all).not.toContain("$0.06");
     });
 
     it("$5.99 should not trigger low-price warning", () => {
-      const r = validatePushSafety(mkDraft([mkVariant(5.99, 3.0)]));
+      const r = validatePushSafety(mkDraft([mkVariant(599, 300)]));
       expect(r.warnings).not.toContainEqual(expect.stringContaining("very low price"));
     });
 
     it("$0.50 should trigger low-price warning with correct amount", () => {
-      const r = validatePushSafety(mkDraft([mkVariant(0.50, 0.20)]));
+      const r = validatePushSafety(mkDraft([mkVariant(50, 20)]));
       expect(r.warnings).toContainEqual(expect.stringContaining("very low price"));
       expect(r.warnings).toContainEqual(expect.stringContaining("$0.50"));
     });
 
     it("below-cost message shows correct dollars", () => {
-      const r = validatePushSafety(mkDraft([mkVariant(2.0, 5.0)]));
+      const r = validatePushSafety(mkDraft([mkVariant(200, 500)]));
       expect(r.blocked[0]).toContain("$2.00");
       expect(r.blocked[0]).toContain("$5.00");
     });

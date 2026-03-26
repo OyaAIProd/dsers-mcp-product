@@ -234,11 +234,27 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
     },
   ],
   [
+    /draft data.*has expired/i,
+    {
+      summary: "Import job expired — draft data not recoverable",
+      cause:
+        "The import job's draft data has expired (server restarted) and the job has no import_item_id to recover from.",
+      action:
+        "Call dsers.product.import with the original source_url to create a fresh import, " +
+        "then apply any rules to the new job_id. " +
+        "If you don't have the URL, ask the user for the product link.",
+    },
+  ],
+  [
     /Cannot recover job/i,
     {
-      summary: "Job recovery failed",
-      cause: "The job state token is corrupted or missing essential data.",
-      action: "Call dsers.product.import again with the original source_url to create a new job.",
+      summary: "Job recovery failed — missing import reference",
+      cause:
+        "The job's internal state is incomplete (no import_item_id), so the draft " +
+        "cannot be re-fetched from DSers.",
+      action:
+        "Call dsers.product.import with the original source_url to create a fresh import. " +
+        "If you don't have the URL, ask the user for the product link.",
     },
   ],
   [
@@ -273,6 +289,30 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
       action:
         "Verify the product URL in a browser. If the product page is gone or shows 'not available', " +
         "try a different product URL.",
+    },
+  ],
+  [
+    /Rule validation failed/i,
+    {
+      summary: "Pricing or content rule parameters are invalid",
+      cause: "$$RAW$$",
+      action:
+        "Fix the invalid rule parameters listed above. " +
+        "Call dsers.rules.validate with the corrected rules to verify before retrying. " +
+        "Common issues: multiplier must be > 0, fixed_markup must be >= 0 (in dollars), " +
+        "round_digits must be 0-10, pricing mode must be one of: multiplier, fixed_markup.",
+    },
+  ],
+  [
+    /Push option validation failed/i,
+    {
+      summary: "Push options contain invalid values",
+      cause: "$$RAW$$",
+      action:
+        "Fix the invalid push_options listed above and retry. " +
+        "Or omit push_options_json entirely to use sensible defaults. " +
+        "Valid image_strategy: selected_only, all_available. " +
+        "Valid pricing_rule_behavior: keep_manual, apply_store_pricing_rule.",
     },
   ],
   [

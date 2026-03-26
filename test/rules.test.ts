@@ -23,42 +23,42 @@ function mkV(supplier: number | null, offer: number | null, title = "V") {
 describe("pricing base field", () => {
   it("uses supplier_price as base for multiplier", () => {
     const { draft } = applyRules(
-      mkDraft([mkV(4.0, 10.0)]),
+      mkDraft([mkV(400, 1000)]),
       { pricing: { mode: "multiplier", multiplier: 2.5 } },
     );
-    expect(draft.variants[0].offer_price).toBe(10.0); // 4.0 * 2.5
+    expect(draft.variants[0].offer_price).toBe(1000); // 400 * 2.5
   });
 
   it("uses supplier_price as base for fixed_markup", () => {
     const { draft } = applyRules(
-      mkDraft([mkV(4.0, 10.0)]),
+      mkDraft([mkV(400, 1000)]),
       { pricing: { mode: "fixed_markup", fixed_markup: 3.0 } },
     );
-    expect(draft.variants[0].offer_price).toBe(7.0); // 4.0 + 3.0
+    expect(draft.variants[0].offer_price).toBe(700); // 400 + $3.00*100
   });
 
   it("falls back to offer_price when supplier_price is null", () => {
     const { draft } = applyRules(
-      mkDraft([mkV(null, 8.0)]),
+      mkDraft([mkV(null, 800)]),
       { pricing: { mode: "multiplier", multiplier: 2 } },
     );
-    expect(draft.variants[0].offer_price).toBe(16.0);
+    expect(draft.variants[0].offer_price).toBe(1600);
   });
 
   it("falls back to offer_price when supplier_price is 0", () => {
     const { draft } = applyRules(
-      mkDraft([mkV(0, 8.0)]),
+      mkDraft([mkV(0, 800)]),
       { pricing: { mode: "multiplier", multiplier: 2 } },
     );
-    expect(draft.variants[0].offer_price).toBe(16.0);
+    expect(draft.variants[0].offer_price).toBe(1600);
   });
 
   it("offer_price=0 + supplier_price>0 → uses supplier_price", () => {
     const { draft } = applyRules(
-      mkDraft([mkV(3.5, 0)]),
+      mkDraft([mkV(350, 0)]),
       { pricing: { mode: "multiplier", multiplier: 2.5 } },
     );
-    expect(draft.variants[0].offer_price).toBe(8.75);
+    expect(draft.variants[0].offer_price).toBe(875);
   });
 
   it("both null → variant skipped", () => {
@@ -83,39 +83,39 @@ describe("pricing base field", () => {
 // ═══════════════════════════════════════════════════
 
 describe("pricing accuracy", () => {
-  it("multiplier rounds to 2 digits by default", () => {
+  it("multiplier rounds to integer cents by default", () => {
     const { draft } = applyRules(
-      mkDraft([mkV(3.33, 0)]),
+      mkDraft([mkV(333, 0)]),
       { pricing: { mode: "multiplier", multiplier: 3 } },
     );
-    expect(draft.variants[0].offer_price).toBe(9.99);
+    expect(draft.variants[0].offer_price).toBe(999);
   });
 
   it("custom round_digits works", () => {
     const { draft } = applyRules(
-      mkDraft([mkV(3.333, 0)]),
-      { pricing: { mode: "multiplier", multiplier: 3, round_digits: 0 } },
+      mkDraft([mkV(333, 0)]),
+      { pricing: { mode: "multiplier", multiplier: 1.005, round_digits: 2 } },
     );
-    expect(draft.variants[0].offer_price).toBe(10);
+    expect(draft.variants[0].offer_price).toBe(334.67);
   });
 
   it("multiple variants each get their own price", () => {
     const { draft } = applyRules(
-      mkDraft([mkV(2.0, 0), mkV(5.0, 0), mkV(10.0, 0)]),
+      mkDraft([mkV(200, 0), mkV(500, 0), mkV(1000, 0)]),
       { pricing: { mode: "fixed_markup", fixed_markup: 1.5 } },
     );
-    expect(draft.variants[0].offer_price).toBe(3.5);
-    expect(draft.variants[1].offer_price).toBe(6.5);
-    expect(draft.variants[2].offer_price).toBe(11.5);
+    expect(draft.variants[0].offer_price).toBe(350);
+    expect(draft.variants[1].offer_price).toBe(650);
+    expect(draft.variants[2].offer_price).toBe(1150);
   });
 
   it("provider_default mode leaves prices unchanged", () => {
     const { draft } = applyRules(
-      mkDraft([mkV(3.0, 8.0)]),
+      mkDraft([mkV(300, 800)]),
       { pricing: { mode: "provider_default" } },
     );
-    expect(draft.variants[0].offer_price).toBe(8.0);
-    expect(draft.variants[0].supplier_price).toBe(3.0);
+    expect(draft.variants[0].offer_price).toBe(800);
+    expect(draft.variants[0].supplier_price).toBe(300);
   });
 });
 
@@ -125,20 +125,20 @@ describe("pricing accuracy", () => {
 
 describe("idempotency", () => {
   it("applying different multipliers to same original gives independent results", () => {
-    const original = mkDraft([mkV(4.0, 0)]);
+    const original = mkDraft([mkV(400, 0)]);
 
     const r1 = applyRules(structuredClone(original), { pricing: { mode: "multiplier", multiplier: 2 } });
     const r2 = applyRules(structuredClone(original), { pricing: { mode: "multiplier", multiplier: 3 } });
 
-    expect(r1.draft.variants[0].offer_price).toBe(8.0);
-    expect(r2.draft.variants[0].offer_price).toBe(12.0);
+     expect(r1.draft.variants[0].offer_price).toBe(800);
+     expect(r2.draft.variants[0].offer_price).toBe(1200);
   });
 
   it("applyRules does not mutate the input draft", () => {
-    const original = mkDraft([mkV(4.0, 10.0)]);
+    const original = mkDraft([mkV(400, 1000)]);
     const copy = structuredClone(original);
     applyRules(original, { pricing: { mode: "multiplier", multiplier: 2 } });
-    expect(copy.variants[0].offer_price).toBe(10.0);
+    expect(copy.variants[0].offer_price).toBe(1000);
   });
 });
 
@@ -283,14 +283,14 @@ describe("normalizeRules validation", () => {
 describe("combined rules", () => {
   it("all three families applied together", () => {
     const { draft, summary } = applyRules(
-      mkDraft([mkV(4.0, 0)]),
+      mkDraft([mkV(400, 0)]),
       {
         pricing: { mode: "multiplier", multiplier: 2.5 },
         content: { title_override: "New" },
         images: { keep_first_n: 1 },
       },
     );
-    expect(draft.variants[0].offer_price).toBe(10.0);
+    expect(draft.variants[0].offer_price).toBe(1000);
     expect(draft.title).toBe("New");
     expect(draft.images).toHaveLength(1);
     expect(summary.applied).toHaveLength(3);
@@ -298,10 +298,158 @@ describe("combined rules", () => {
 
   it("summary tracks what was applied", () => {
     const { summary } = applyRules(
-      mkDraft([mkV(4.0, 0)]),
+      mkDraft([mkV(400, 0)]),
       { pricing: { mode: "multiplier", multiplier: 2 } },
     );
     expect(summary.applied[0].rule_family).toBe("pricing");
     expect(summary.applied[0].variants_changed).toBe(1);
+  });
+});
+
+// ═══════════════════════════════════════════════════
+// variant_overrides
+// ═══════════════════════════════════════════════════
+
+describe("variant_overrides normalization", () => {
+  it("accepts valid overrides", () => {
+    const r = normalizeRules({
+      variant_overrides: [
+        { match: "Green", sell_price: 12.99, compare_at_price: 19.99 },
+      ],
+    });
+    expect(r.errors).toHaveLength(0);
+    expect(r.effective_rules.variant_overrides).toHaveLength(1);
+    expect(r.effective_rules.variant_overrides[0].match).toBe("Green");
+    expect(r.effective_rules.variant_overrides[0].sell_price).toBe(12.99);
+  });
+
+  it("rejects override without match", () => {
+    const r = normalizeRules({
+      variant_overrides: [{ sell_price: 10 }],
+    });
+    expect(r.errors.length).toBeGreaterThan(0);
+  });
+
+  it("rejects non-array variant_overrides", () => {
+    const r = normalizeRules({
+      variant_overrides: { match: "foo" },
+    });
+    expect(r.errors.length).toBeGreaterThan(0);
+  });
+
+  it("rejects negative sell_price", () => {
+    const r = normalizeRules({
+      variant_overrides: [{ match: "A", sell_price: -5 }],
+    });
+    expect(r.errors.length).toBeGreaterThan(0);
+  });
+
+  it("rejects non-integer stock", () => {
+    const r = normalizeRules({
+      variant_overrides: [{ match: "A", stock: 3.5 }],
+    });
+    expect(r.errors.length).toBeGreaterThan(0);
+  });
+
+  it("skips empty overrides array", () => {
+    const r = normalizeRules({ variant_overrides: [] });
+    expect(r.errors).toHaveLength(0);
+    expect(r.effective_rules.variant_overrides).toBeUndefined();
+  });
+
+  it("warns on unknown override key", () => {
+    const r = normalizeRules({
+      variant_overrides: [{ match: "A", sell_price: 10, unknown_field: true }],
+    });
+    expect(r.warnings).toContainEqual(expect.stringContaining("unknown_field"));
+  });
+});
+
+describe("variant_overrides application", () => {
+  it("overrides sell_price by title match", () => {
+    const draft = mkDraft([mkV(400, 0)]);
+    draft.variants[0].title = "Green Crocodile";
+    draft.variants[0].sku = "14:350850";
+    const { draft: result, summary } = applyRules(draft, {
+      variant_overrides: [{ match: "green", sell_price: 12.99 }],
+    });
+    expect(result.variants[0].offer_price).toBe(1299);
+    expect(summary.applied).toContainEqual(
+      expect.objectContaining({ rule_family: "variant_overrides", variants_matched: 1 }),
+    );
+  });
+
+  it("overrides compare_at_price", () => {
+    const draft = mkDraft([mkV(400, 0)]);
+    draft.variants[0].title = "Red Fox";
+    draft.variants[0].compare_at_price = 800;
+    const { draft: result } = applyRules(draft, {
+      variant_overrides: [{ match: "red", compare_at_price: 19.99 }],
+    });
+    expect(result.variants[0].compare_at_price).toBe(1999);
+  });
+
+  it("overrides stock", () => {
+    const draft = mkDraft([mkV(400, 0)]);
+    draft.variants[0].title = "Blue Whale";
+    const { draft: result } = applyRules(draft, {
+      variant_overrides: [{ match: "blue", stock: 0 }],
+    });
+    expect(result.variants[0].stock).toBe(0);
+  });
+
+  it("overrides title", () => {
+    const draft = mkDraft([mkV(400, 0)]);
+    draft.variants[0].title = "Old Name";
+    const { draft: result } = applyRules(draft, {
+      variant_overrides: [{ match: "old name", title: "New Name" }],
+    });
+    expect(result.variants[0].title).toBe("New Name");
+  });
+
+  it("matches by sku substring", () => {
+    const draft = mkDraft([mkV(400, 0)]);
+    draft.variants[0].title = "Something";
+    draft.variants[0].sku = "SKU-ABC-123";
+    const { draft: result } = applyRules(draft, {
+      variant_overrides: [{ match: "abc", sell_price: 5.00 }],
+    });
+    expect(result.variants[0].offer_price).toBe(500);
+  });
+
+  it("applied after global pricing", () => {
+    const draft = mkDraft([mkV(400, 0)]);
+    draft.variants[0].title = "Special";
+    const { draft: result } = applyRules(draft, {
+      pricing: { mode: "multiplier", multiplier: 2 },
+      variant_overrides: [{ match: "special", sell_price: 99.99 }],
+    });
+    expect(result.variants[0].offer_price).toBe(9999);
+  });
+
+  it("warns when no variants matched", () => {
+    const draft = mkDraft([mkV(400, 0)]);
+    draft.variants[0].title = "Nothing here";
+    const { summary } = applyRules(draft, {
+      variant_overrides: [{ match: "nonexistent" }],
+    });
+    expect(summary.warnings).toContainEqual(expect.stringContaining("no variants matched"));
+  });
+
+  it("multiple overrides can target different variants", () => {
+    const draft = mkDraft([mkV(400, 0), mkV(600, 0)]);
+    draft.variants[0].title = "Green";
+    draft.variants[1].title = "Red";
+    const { draft: result, summary } = applyRules(draft, {
+      variant_overrides: [
+        { match: "green", sell_price: 10.00 },
+        { match: "red", sell_price: 15.00 },
+      ],
+    });
+    expect(result.variants[0].offer_price).toBe(1000);
+    expect(result.variants[1].offer_price).toBe(1500);
+    expect(summary.applied).toContainEqual(
+      expect.objectContaining({ rule_family: "variant_overrides", variants_matched: 2 }),
+    );
   });
 });

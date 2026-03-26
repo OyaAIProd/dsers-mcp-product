@@ -1,4 +1,4 @@
-const KNOWN_TOP_LEVEL_RULE_KEYS = new Set(["pricing", "content", "images", "instruction_text"]);
+const KNOWN_TOP_LEVEL_RULE_KEYS = new Set(["pricing", "content", "images", "variant_overrides", "instruction_text"]);
 const KNOWN_PRICING_KEYS = new Set(["mode", "multiplier", "fixed_markup", "round_digits"]);
 const KNOWN_CONTENT_KEYS = new Set([
   "title_override",
@@ -87,7 +87,7 @@ function _normalizePricing(
     normalized.fixed_markup = markup;
   }
   if (mode !== "provider_default") {
-    const rd = pricing.round_digits ?? 2;
+    const rd = pricing.round_digits ?? 0;
     const roundDigits = Number.isInteger(rd) ? rd : parseInt(String(rd), 10);
     if (Number.isNaN(roundDigits) || roundDigits < 0 || roundDigits > 10) {
       errors.push("pricing.round_digits must be an integer between 0 and 10.");
@@ -203,6 +203,63 @@ function _normalizeImages(
   return normalized;
 }
 
+const KNOWN_VARIANT_OVERRIDE_KEYS = new Set([
+  "match", "sell_price", "compare_at_price", "stock", "title",
+]);
+
+function _normalizeVariantOverrides(
+  overrides: any,
+  warnings: string[],
+  errors: string[],
+): Record<string, any>[] | null {
+  if (overrides == null) return null;
+  if (!Array.isArray(overrides)) {
+    errors.push("variant_overrides must be an array of objects, each with a 'match' field.");
+    return null;
+  }
+  if (!overrides.length) return null;
+  const result: Record<string, any>[] = [];
+  for (let i = 0; i < overrides.length; i++) {
+    const entry = overrides[i];
+    if (!entry || typeof entry !== "object") {
+      warnings.push(`variant_overrides[${i}] is not an object and was skipped.`);
+      continue;
+    }
+    const match = String(entry.match ?? "").trim();
+    if (!match) {
+      errors.push(`variant_overrides[${i}].match is required (variant title or SKU substring to match).`);
+      continue;
+    }
+    const normalized: Record<string, any> = { match };
+    for (const key of Object.keys(entry).sort()) {
+      if (!KNOWN_VARIANT_OVERRIDE_KEYS.has(key)) {
+        warnings.push(`Unknown variant_overrides key '${key}' at index ${i} was ignored.`);
+        continue;
+      }
+      if (key === "match") continue;
+      if (key === "sell_price" || key === "compare_at_price") {
+        const val = _asFloat(entry[key], null);
+        if (val == null || val < 0) {
+          errors.push(`variant_overrides[${i}].${key} must be a non-negative number (in dollars).`);
+          continue;
+        }
+        normalized[key] = val;
+      } else if (key === "stock") {
+        const val = _asFloat(entry[key], null);
+        if (val == null || val < 0 || !Number.isInteger(val)) {
+          errors.push(`variant_overrides[${i}].stock must be a non-negative integer.`);
+          continue;
+        }
+        normalized[key] = val;
+      } else if (key === "title") {
+        normalized[key] = String(entry[key]);
+      }
+    }
+    if (Object.keys(normalized).length > 1) result.push(normalized);
+  }
+  return result.length ? result : null;
+}
+
 export function normalizeRules(
   rules: Record<string, any>,
   ruleCapabilities?: Record<string, any>,
@@ -230,6 +287,9 @@ export function normalizeRules(
 
   const images = _normalizeImages(req.images, caps.images, warnings, errors);
   if (Object.keys(images).length) effective.images = images;
+
+  const variantOverrides = _normalizeVariantOverrides(req.variant_overrides, warnings, errors);
+  if (variantOverrides) effective.variant_overrides = variantOverrides;
 
   const instructionText = req.instruction_text;
   if (instructionText != null && instructionText !== "") {
@@ -259,7 +319,7 @@ function _applyPricing(draft: Record<string, any>, pricing: Record<string, any>,
   if (mode === "provider_default") return;
   const multiplier = _asFloat(pricing.multiplier, 1) ?? 1;
   const markup = _asFloat(pricing.fixed_markup, 0) ?? 0;
-  const roundDigits = pricing.round_digits ?? 2;
+  const roundDigits = pricing.round_digits ?? 0;
   const roundTo = (v: number, d: number) => Math.round(v * 10 ** d) / 10 ** d;
   const variants = draft.variants ?? [];
   let changed = 0;
@@ -268,7 +328,7 @@ function _applyPricing(draft: Record<string, any>, pricing: Record<string, any>,
     if (base == null) continue;
     let newPrice: number;
     if (mode === "multiplier") newPrice = roundTo(base * multiplier, roundDigits);
-    else if (mode === "fixed_markup") newPrice = roundTo(base + markup, roundDigits);
+    else if (mode === "fixed_markup") newPrice = roundTo(base + markup * 100, roundDigits);
     else {
       summary.warnings.push(`Unsupported pricing mode '${mode}' was ignored.`);
       return;
@@ -324,6 +384,45 @@ function _applyImages(draft: Record<string, any>, images: Record<string, any>, s
   summary.applied.push({ rule_family: "images", image_count_before: originalCount, image_count_after: final.length });
 }
 
+function _applyVariantOverrides(
+  draft: Record<string, any>,
+  overrides: Record<string, any>[],
+  summary: Record<string, any>,
+): void {
+  const variants: Record<string, any>[] = draft.variants ?? [];
+  if (!variants.length) return;
+  let matched = 0;
+  for (const override of overrides) {
+    const pattern = String(override.match ?? "").toLowerCase();
+    if (!pattern) continue;
+    for (const v of variants) {
+      const titleLower = String(v.title ?? "").toLowerCase();
+      const skuLower = String(v.sku ?? "").toLowerCase();
+      if (!titleLower.includes(pattern) && !skuLower.includes(pattern)) continue;
+      if (override.sell_price != null) {
+        v.offer_price = Math.round(Number(override.sell_price) * 100);
+      }
+      if (override.compare_at_price != null) {
+        v.compare_at_price = Math.round(Number(override.compare_at_price) * 100);
+      }
+      if (override.stock != null) {
+        v.stock = Number(override.stock);
+      }
+      if (override.title != null) {
+        v.title = String(override.title);
+      }
+      matched++;
+    }
+  }
+  if (matched) {
+    summary.applied.push({ rule_family: "variant_overrides", variants_matched: matched });
+  } else {
+    summary.warnings.push(
+      "variant_overrides were provided but no variants matched. Check the 'match' values against variant titles/SKUs.",
+    );
+  }
+}
+
 export function applyRules(
   draft: Record<string, any>,
   rules: Record<string, any>,
@@ -339,6 +438,11 @@ export function applyRules(
 
   const images = rules.images ?? {};
   if (Object.keys(images).length) _applyImages(d, images, summary);
+
+  const variantOverrides = rules.variant_overrides;
+  if (Array.isArray(variantOverrides) && variantOverrides.length) {
+    _applyVariantOverrides(d, variantOverrides, summary);
+  }
 
   if (rules.instruction_text) {
     summary.warnings.push(

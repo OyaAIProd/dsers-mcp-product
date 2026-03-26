@@ -31,8 +31,8 @@ function createMockProvider(): ImportProvider {
         images: ["img1.jpg", "img2.jpg"],
         tags: [],
         variants: [
-          { variant_ref: "v1", title: "Red", supplier_price: 5.0, offer_price: 10.0, stock: 50, sku: "RED" },
-          { variant_ref: "v2", title: "Blue", supplier_price: 6.0, offer_price: 12.0, stock: 30, sku: "BLUE" },
+          { variant_ref: "v1", title: "Red", supplier_price: 500, offer_price: 1000, stock: 50, sku: "RED" },
+          { variant_ref: "v2", title: "Blue", supplier_price: 600, offer_price: 1200, stock: 30, sku: "BLUE" },
         ],
       },
       warnings: [],
@@ -52,7 +52,7 @@ function createMockProvider(): ImportProvider {
         description_html: "",
         images: [],
         tags: [],
-        variants: [{ variant_ref: "v1", title: "V1", supplier_price: 5, offer_price: 10, stock: 10, sku: "V1" }],
+        variants: [{ variant_ref: "v1", title: "V1", supplier_price: 500, offer_price: 1000, stock: 10, sku: "V1" }],
       },
       { variants_key: "variants" },
       [],
@@ -230,7 +230,7 @@ describe("ImportFlowService", () => {
           description_html: "",
           images: [],
           tags: [],
-          variants: [{ variant_ref: "v1", title: "V", supplier_price: 5, offer_price: 0, stock: 10, sku: "V" }],
+          variants: [{ variant_ref: "v1", title: "V", supplier_price: 500, offer_price: 0, stock: 10, sku: "V" }],
         },
         warnings: [],
       });
@@ -252,7 +252,7 @@ describe("ImportFlowService", () => {
           description_html: "",
           images: [],
           tags: [],
-          variants: [{ variant_ref: "v1", title: "V", supplier_price: 5, offer_price: 0, stock: 10, sku: "V" }],
+          variants: [{ variant_ref: "v1", title: "V", supplier_price: 500, offer_price: 0, stock: 10, sku: "V" }],
         },
         warnings: [],
       });
@@ -349,7 +349,7 @@ describe("ImportFlowService", () => {
         provider_state: { import_item_id: "item-nm", field_map: {} },
         draft: {
           title: "No Markup", description_html: "", images: [], tags: [],
-          variants: [{ variant_ref: "v1", title: "V", supplier_price: 5, offer_price: 5, stock: 10, sku: "V" }],
+          variants: [{ variant_ref: "v1", title: "V", supplier_price: 500, offer_price: 500, stock: 10, sku: "V" }],
         },
         warnings: [],
       });
@@ -373,7 +373,7 @@ describe("ImportFlowService", () => {
       const result = await service.prepareImportCandidate({
         source_url: "https://www.aliexpress.com/item/1234567890.html",
       });
-      expect(result.skus[0]).toEqual(["name", "sell_price", "cost", "qty"]);
+      expect(result.skus[0]).toEqual(["name", "sell", "compare_at", "cost", "qty", "supplier_qty"]);
       expect(result.skus.length).toBeGreaterThan(1);
     });
 
@@ -395,7 +395,7 @@ describe("ImportFlowService", () => {
 
     it("skus capped at 3 data rows + 1 header", async () => {
       const manyVariants = Array.from({ length: 20 }, (_, i) => ({
-        variant_ref: `v${i}`, title: `V${i}`, supplier_price: 5, offer_price: 10, stock: 10, sku: `V${i}`,
+        variant_ref: `v${i}`, title: `V${i}`, supplier_price: 500, offer_price: 1000, stock: 10, sku: `V${i}`,
       }));
       (provider.prepareCandidate as any).mockResolvedValueOnce({
         provider_label: "Test",
@@ -406,7 +406,7 @@ describe("ImportFlowService", () => {
       const result = await service.prepareImportCandidate({
         source_url: "https://www.aliexpress.com/item/many.html",
       });
-      expect(result.skus[0]).toEqual(["name", "sell_price", "cost", "qty"]);
+      expect(result.skus[0]).toEqual(["name", "sell", "compare_at", "cost", "qty", "supplier_qty"]);
       expect(result.skus).toHaveLength(4); // 1 header + 3 data
       expect(result.skus_more).toBe(17);
       expect(result.variants_count).toBe(20);
@@ -426,7 +426,7 @@ describe("ImportFlowService", () => {
       (provider.prepareCandidate as any).mockResolvedValueOnce({
         provider_label: "Test",
         provider_state: { import_item_id: "item-w", field_map: {} },
-        draft: { title: "W", description_html: "", images: [], tags: [], variants: [{ variant_ref: "v1", title: "V", supplier_price: 5, offer_price: 10, stock: 10, sku: "V" }] },
+        draft: { title: "W", description_html: "", images: [], tags: [], variants: [{ variant_ref: "v1", title: "V", supplier_price: 500, offer_price: 1000, stock: 10, sku: "V" }] },
         warnings: [longWarning],
       });
       const result = await service.prepareImportCandidate({

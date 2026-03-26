@@ -11,7 +11,7 @@ export interface PushSafetyResult {
 }
 
 const LOW_STOCK_THRESHOLD = 5;
-const LOW_PRICE_THRESHOLD = 1.0; // $1.00
+const LOW_PRICE_THRESHOLD = 100; // 100 cents = $1.00
 const LOW_MARGIN_RATIO = 0.10; // 10 %
 
 export function validatePushSafety(
@@ -124,6 +124,6 @@ function toNum(val: any): number | null {
   return n;
 }
 
-function fmtDollars(value: number): string {
-  return value.toFixed(2);
+function fmtDollars(cents: number): string {
+  return (cents / 100).toFixed(2);
 }

@@ -156,6 +156,10 @@ export class PrivateDsersProvider implements ImportProvider {
           supported: ["keep_first_n", "drop_indexes"],
           unsupported: ["translate_image_text", "remove_logo"],
         },
+        variant_overrides: {
+          supported: true,
+          fields: ["sell_price", "compare_at_price", "stock", "title"],
+        },
         visibility: { supported_modes: visibilityModes },
       },
       push_options: {
@@ -369,7 +373,7 @@ export class PrivateDsersProvider implements ImportProvider {
       );
       const mainImageKey = fieldMap.main_image_key;
       if (mainImageKey) {
-        updateArgs[mainImageKey] = (draft.images ?? [null])[0];
+        updateArgs[mainImageKey] = draft.images?.[0] ?? null;
       }
     } else if (imagesKey && draft.images != null) {
       warnings.push(
@@ -1366,13 +1370,29 @@ export class PrivateDsersProvider implements ImportProvider {
       ? asFloat(item[totalInventoryKey])
       : null;
 
-    const draft = {
+    const shipToKey = firstMatchingKey(item, ["shipTo"]);
+    const fromCountryKey = firstMatchingKey(item, ["fromCountry"]);
+
+    const supply: Record<string, any> = supplyKey ? (item[supplyKey] ?? {}) : {};
+    if (variantsKey && Object.keys(supply).length) {
+      for (const v of variants) {
+        const supplyEntry = supply[v.sku] ?? supply[v.variant_ref] ?? null;
+        if (supplyEntry && typeof supplyEntry === "object") {
+          const ss = asFloat(firstPresent(supplyEntry, ["stock", "quantity", "inventory"]));
+          if (ss != null) v.supplier_stock = ss;
+        }
+      }
+    }
+
+    const draft: Record<string, any> = {
       title: String(item[titleKey!] ?? ""),
       description_html: String(item[descriptionKey!] ?? ""),
       images,
       tags: rawTagsKey ? [...(item[rawTagsKey] ?? [])] : [],
       variants,
       total_inventory: totalInventory,
+      ship_to: shipToKey ? String(item[shipToKey] ?? "") : "",
+      ship_from: fromCountryKey ? String(item[fromCountryKey] ?? "") : "",
     };
     const fieldMap: Record<string, any> = {
       title_key: titleKey,
@@ -1455,10 +1475,14 @@ export class PrivateDsersProvider implements ImportProvider {
       if (supplierKey && normalized.supplier_price != null)
         rawVariant[supplierKey] = coerceLike(rawVariant[supplierKey], normalized.supplier_price);
 
+      if (compareKey && normalized.compare_at_price != null) {
+        rawVariant[compareKey] = coerceLike(rawVariant[compareKey], normalized.compare_at_price);
+      }
+
       if (normalized.offer_price != null) {
         const newOffer = Number(normalized.offer_price);
         if (Number.isFinite(newOffer)) {
-          if (compareKey) {
+          if (compareKey && normalized.compare_at_price == null) {
             const cur = Number(rawVariant[compareKey]);
             if (!Number.isFinite(cur) || cur < newOffer)
               rawVariant[compareKey] = coerceLike(rawVariant[compareKey], normalized.offer_price);
@@ -1480,61 +1504,10 @@ export class PrivateDsersProvider implements ImportProvider {
   }
 
   private denormalizeSupply(
-    normalizedVariants: Record<string, any>[],
+    _normalizedVariants: Record<string, any>[],
     fieldMap: Record<string, any>,
   ): Record<string, any> {
-    const rawSupply: Record<string, any> = structuredClone(
-      fieldMap.raw_supply ?? {},
-    );
-    if (typeof rawSupply !== "object") return {};
-
-    const variantsByRef: Record<string, Record<string, any>> = {};
-    for (const item of normalizedVariants) {
-      const ref = String(
-        item[fieldMap.variant_ref_key ?? "variant_ref"] ?? "",
-      );
-      if (ref) variantsByRef[ref] = item;
-    }
-    for (const [supplyRef, rawEntry] of Object.entries(rawSupply)) {
-      if (!rawEntry || typeof rawEntry !== "object") continue;
-      const normalized = variantsByRef[supplyRef];
-      if (!normalized) continue;
-      const offerKey = firstMatchingKey(rawEntry as Record<string, any>, [
-        "sellPrice",
-        "salePrice",
-        "price",
-      ]);
-      const supplierKey = firstMatchingKey(rawEntry as Record<string, any>, [
-        "supplierPrice",
-        "buyPrice",
-        "cost",
-      ]);
-      const compareKey = firstMatchingKey(rawEntry as Record<string, any>, [
-        "compareAtPrice",
-      ]);
-      const entry = rawEntry as any;
-      if (offerKey)
-        entry[offerKey] = coerceLike(entry[offerKey], normalized.offer_price);
-      if (supplierKey && normalized.supplier_price != null)
-        entry[supplierKey] = coerceLike(entry[supplierKey], normalized.supplier_price);
-
-      if (normalized.offer_price != null) {
-        const newOffer = Number(normalized.offer_price);
-        if (Number.isFinite(newOffer)) {
-          if (compareKey) {
-            const cur = Number(entry[compareKey]);
-            if (!Number.isFinite(cur) || cur < newOffer)
-              entry[compareKey] = coerceLike(entry[compareKey], normalized.offer_price);
-          }
-          if ("price" in entry && offerKey !== "price" && supplierKey !== "price") {
-            const cur = Number(entry.price);
-            if (Number.isFinite(cur) && cur < newOffer)
-              entry.price = coerceLike(entry.price, normalized.offer_price);
-          }
-        }
-      }
-    }
-    return rawSupply;
+    return structuredClone(fieldMap.raw_supply ?? {});
   }
 
   private denormalizeImages(
@@ -1865,6 +1838,12 @@ function extractVariants(
         ),
         image_url: String(
           firstPresent(raw, ["imageUrl", "image", "imgUrl"]) ?? "",
+        ),
+        compare_at_price: asFloat(
+          firstPresent(raw, ["compareAtPrice", "comparePrice"]),
+        ),
+        ship_from: String(
+          firstPresent(raw, ["shipFrom", "originCountry"]) ?? "",
         ),
       });
     }

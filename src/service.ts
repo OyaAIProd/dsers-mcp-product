@@ -11,17 +11,25 @@ function utcNow(): string {
 }
 
 function sumVariantStock(variants?: any[]): number | null {
-  if (!Array.isArray(variants) || !variants.length) return null;
+  return sumVariantField(variants, "stock");
+}
+
+function sumVariantField(variants?: any[], field?: string): number | null {
+  if (!Array.isArray(variants) || !variants.length || !field) return null;
   let total = 0;
-  let any = false;
+  let found = false;
   for (const v of variants) {
-    const s = v?.stock;
+    const s = v?.[field];
     if (s != null && !isNaN(Number(s))) {
       total += Number(s);
-      any = true;
+      found = true;
     }
   }
-  return any ? total : null;
+  return found ? total : null;
+}
+
+function centsToDollars(cents: number): number {
+  return Math.round(cents) / 100;
 }
 
 function rangeOf(
@@ -36,8 +44,8 @@ function rangeOf(
     if (!isNaN(n)) prices.push(n);
   }
   if (!prices.length) return null;
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
+  const min = centsToDollars(Math.min(...prices));
+  const max = centsToDollars(Math.max(...prices));
   return min === max ? min : { min, max };
 }
 
@@ -168,7 +176,7 @@ export class ImportFlowService {
 
     const stores = (caps.stores ?? []).map((s: any) => {
       const slim: Record<string, any> = { id: s.store_ref, name: s.display_name };
-      if (s.platform && s.platform !== "shopify") slim.platform = s.platform;
+      if (s.platform) slim.platform = s.platform;
       if (s.shipping_profiles?.length) {
         slim.ship = s.shipping_profiles.map((p: any) =>
           p.is_default ? `${p.name} *` : p.name,
@@ -246,7 +254,10 @@ export class ImportFlowService {
       await this.provider.getRuleCapabilities(targetStore);
     const validatedRules = normalizeRules(rules, providerCaps.rule_families);
     if (validatedRules.errors?.length) {
-      throw new Error(validatedRules.errors.join("; "));
+      throw new Error(
+        "Rule validation failed: " + validatedRules.errors.join("; ") +
+          " RECOVERY: Fix the rule parameters and retry. Call dsers.rules.validate to pre-check rules.",
+      );
     }
 
     const resolved = await resolveSourceUrl(sourceUrl, sourceHint);
@@ -312,7 +323,10 @@ export class ImportFlowService {
     sourceUrls: any[],
   ): Promise<Record<string, any>> {
     if (!sourceUrls.length) {
-      throw new Error("source_urls must be a non-empty list.");
+      throw new Error(
+        "source_urls must be a non-empty list. " +
+          "RECOVERY: Provide source_urls_json with at least one supplier product URL.",
+      );
     }
     const batchId = `batch-${randomUUID().slice(0, 12)}`;
     const sharedKeys = [
@@ -360,7 +374,7 @@ export class ImportFlowService {
     const jobId = String(payload.job_id ?? "").trim();
     if (!jobId)
       throw new Error(
-        "job_id is required. It is returned by dsers.product.import in the response.",
+        "job_id is required. RECOVERY: Use the job_id returned by a previous dsers.product.import call.",
       );
     const job = this.store.load(jobId);
     if (job._recovered && !job.draft) {
@@ -375,14 +389,22 @@ export class ImportFlowService {
     const jobId = String(payload.job_id ?? "").trim();
     if (!jobId)
       throw new Error(
-        "job_id is required. Provide a job_id from a previous dsers.product.import call.",
+        "job_id is required. RECOVERY: Use the job_id returned by a previous dsers.product.import call. " +
+          "If the job_id is lost, re-import the product with dsers.product.import using the source_url.",
       );
     const job = this.store.load(jobId);
-    if (!job.original_draft)
-      throw new Error(
-        "Cannot re-apply rules: original draft not found in this job. " +
-          "The job may have been created in a previous server session that is no longer available.",
-      );
+    if (!job.original_draft) {
+      if (job.provider_state?.import_item_id) {
+        await this.recoverDraft(job);
+      } else {
+        throw new Error(
+          "Cannot re-apply rules: the draft data for this job has expired and cannot be recovered. " +
+            "RECOVERY: Call dsers.product.import with the original source_url to create a fresh import, " +
+            "then apply rules to the new job_id. " +
+            "USER_HINT: Ask the user for the product URL if you don't have it.",
+        );
+      }
+    }
 
     const rules = payload._keep_existing_rules
       ? (job.effective_rules_snapshot ?? job.rules ?? {})
@@ -391,7 +413,10 @@ export class ImportFlowService {
     const providerCaps = await this.provider.getRuleCapabilities(targetStore);
     const validatedRules = normalizeRules(rules, providerCaps.rule_families);
     if (validatedRules.errors?.length) {
-      throw new Error(validatedRules.errors.join("; "));
+      throw new Error(
+        "Rule validation failed: " + validatedRules.errors.join("; ") +
+          " RECOVERY: Fix the rule parameters and retry. Call dsers.rules.validate to pre-check rules.",
+      );
     }
 
     const effectiveRules = validatedRules.effective_rules ?? {};
@@ -442,7 +467,8 @@ export class ImportFlowService {
     if (!jobId || !visibilityMode) {
       throw new Error(
         "job_id and visibility_mode are both required. " +
-          "Valid visibility_mode values: backend_only, sell_immediately.",
+          "RECOVERY: Provide job_id (from dsers.product.import) and visibility_mode " +
+          "(backend_only = draft/hidden, sell_immediately = published on storefront).",
       );
     }
     const job = this.store.load(jobId);
@@ -473,7 +499,8 @@ export class ImportFlowService {
     const jobId = String(payload.job_id ?? "").trim();
     if (!jobId)
       throw new Error(
-        "job_id is required. It is returned by dsers.product.import in the response.",
+        "job_id is required. RECOVERY: Use the job_id from dsers.product.import. " +
+          "If the job_id is lost, re-import the product first.",
       );
 
     const job = this.store.load(jobId);
@@ -491,7 +518,10 @@ export class ImportFlowService {
       providerCaps.push_options,
     );
     if (pushOptionCheck.errors?.length) {
-      throw new Error(pushOptionCheck.errors.join("; "));
+      throw new Error(
+        "Push option validation failed: " + pushOptionCheck.errors.join("; ") +
+          " RECOVERY: Fix the push_options parameters and retry. Omit push_options_json to use defaults.",
+      );
     }
     const effectivePushOptions = pushOptionCheck.effective_push_options ?? {};
     const forcePush = Boolean(
@@ -502,7 +532,9 @@ export class ImportFlowService {
     if (!forcePush && safety.blocked.length) {
       throw new Error(
         `Push blocked by safety check:\n${safety.blocked.join("\n")}\n` +
-        "To override, set force_push=true after confirming the risk with the user.",
+          "RECOVERY: Either (1) fix pricing with dsers.product.import (re-apply mode: job_id + rules_json), " +
+          "or (2) set force_push=true ONLY after showing the user the exact risk and getting explicit confirmation. " +
+          "USER_HINT: Show the user each blocked reason in plain language before asking to override.",
       );
     }
 
@@ -542,7 +574,11 @@ export class ImportFlowService {
       visibility: result.visibility_applied ?? visibilityMode,
       summary: result.summary ?? {},
     };
-    if (allWarnings.length) pushResponse.warnings = [...new Set(allWarnings)].slice(0, 8);
+    if (allWarnings.length) {
+      pushResponse.warnings = [...new Set(allWarnings)]
+        .map((w: string) => w.length > 120 ? w.slice(0, 117) + "..." : w)
+        .slice(0, 8);
+    }
     return pushResponse;
   }
 
@@ -554,7 +590,9 @@ export class ImportFlowService {
     const jobId = String(payload.job_id ?? "").trim();
     if (!jobId) {
       throw new Error(
-        "job_id is required when using target_stores. It is returned by dsers.product.import.",
+        "job_id is required when using target_stores. " +
+          "RECOVERY: Use the job_id from dsers.product.import. " +
+          "If the job_id is lost, re-import the product first.",
       );
     }
 
@@ -588,7 +626,10 @@ export class ImportFlowService {
     jobIds: any[],
   ): Promise<Record<string, any>> {
     if (!jobIds.length) {
-      throw new Error("job_ids must be a non-empty list.");
+      throw new Error(
+        "job_ids must be a non-empty list. " +
+          "RECOVERY: Provide job_ids_json with at least one job_id from dsers.product.import.",
+      );
     }
     const batchId = `batch-${randomUUID().slice(0, 12)}`;
     const tasks = expandPushTasks(
@@ -628,7 +669,11 @@ export class ImportFlowService {
   private async recoverDraft(job: Record<string, any>): Promise<void> {
     const importItemId = job.provider_state?.import_item_id;
     if (!importItemId)
-      throw new Error("Cannot recover job: missing import_item_id in state.");
+      throw new Error(
+        "Cannot recover job: no import_item_id found in the job state. " +
+          "RECOVERY: Call dsers.product.import with the original source_url to create a fresh import. " +
+          "USER_HINT: Ask the user for the product URL if you don't have it.",
+      );
     const itemPayload = await this.provider.fetchImportItem(importItemId);
     const [draft, fieldMap, recoverWarnings] = this.provider.normalizeForRecovery(itemPayload);
     const rules = job.effective_rules_snapshot ?? job.rules ?? {};
@@ -671,7 +716,7 @@ export class ImportFlowService {
     const jobId = String(payload.job_id ?? "").trim();
     if (!jobId)
       throw new Error(
-        "job_id is required. It is returned by dsers.product.import or dsers.store.push.",
+        "job_id is required. RECOVERY: Use the job_id returned by dsers.product.import or dsers.store.push.",
       );
     const job = this.store.load(jobId);
     const result: Record<string, any> = {
@@ -685,7 +730,9 @@ export class ImportFlowService {
     const allWarns = [...new Set([
       ...(job.warnings ?? []),
       ...(job.push_option_warnings ?? []),
-    ])].slice(0, 8);
+    ])]
+      .map((w: string) => w.length > 120 ? w.slice(0, 117) + "..." : w)
+      .slice(0, 8);
     if (allWarns.length) result.warnings = allWarns;
     return result;
   }
@@ -712,8 +759,10 @@ export class ImportFlowService {
 
     const sell = rangeOf(variants, "offer_price");
     const cost = rangeOf(variants, "supplier_price");
+    const compareAt = rangeOf(variants, "compare_at_price");
     if (sell != null) preview.sell_price = sell;
     if (cost != null) preview.cost = cost;
+    if (compareAt != null) preview.compare_at_price = compareAt;
     if (sell != null && cost != null && JSON.stringify(sell) === JSON.stringify(cost)) {
       preview.no_markup = true;
     }
@@ -731,11 +780,26 @@ export class ImportFlowService {
       if (stockTotal > 0 && stockTotal < 5) preview.stock_low = true;
     }
 
+    const supplierStockTotal = sumVariantField(variants, "supplier_stock");
+    if (supplierStockTotal != null && supplierStockTotal !== stockTotal) {
+      preview.supplier_stock = supplierStockTotal;
+    }
+
+    const shipTo = final?.ship_to;
+    const shipFrom = final?.ship_from;
+    if (shipTo) preview.ship_to = shipTo;
+    if (shipFrom) preview.ship_from = shipFrom;
+
     if (variants.length) {
       preview.skus = [
-        ["name", "sell_price", "cost", "qty"],
+        ["name", "sell", "compare_at", "cost", "qty", "supplier_qty"],
         ...variants.slice(0, MAX_VARIANTS).map((v: any) => [
-          v.title, v.offer_price, v.supplier_price, v.stock ?? null,
+          v.title,
+          v.offer_price != null ? centsToDollars(Number(v.offer_price)) : null,
+          v.compare_at_price != null ? centsToDollars(Number(v.compare_at_price)) : null,
+          v.supplier_price != null ? centsToDollars(Number(v.supplier_price)) : null,
+          v.stock ?? null,
+          v.supplier_stock ?? null,
         ]),
       ];
       if (variants.length > MAX_VARIANTS) preview.skus_more = variants.length - MAX_VARIANTS;
