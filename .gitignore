@@ -11,7 +11,6 @@ smithery.yaml
 .next/
 next-env.d.ts
 .vercel
-test/
 .mcpregistry_github_token
 .mcpregistry_registry_token
 .dsers-mcp/
