@@ -161,6 +161,11 @@ export class PrivateDsersProvider implements ImportProvider {
           supported: true,
           fields: ["sell_price", "compare_at_price", "stock", "title", "image_url"],
         },
+        option_edits: {
+          supported: true,
+          actions: ["rename_option", "rename_value", "remove_value", "remove_option"],
+          note: "remove_value is DESTRUCTIVE — permanently deletes all variants using that value. Agent must confirm with user.",
+        },
         visibility: { supported_modes: visibilityModes },
       },
       push_options: {
@@ -380,6 +385,22 @@ export class PrivateDsersProvider implements ImportProvider {
       warnings.push(
         "Image edits were skipped because the detected image structure could not be safely written back.",
       );
+    }
+
+    if (Array.isArray(draft.options) && Array.isArray(fieldMap.raw_options)) {
+      updateArgs.options = this.denormalizeOptions(draft.options, fieldMap.raw_options);
+
+      if (variantsKey && Array.isArray(updateArgs[variantsKey])) {
+        const activeVariantRefs = new Set(
+          (draft.variants ?? []).map((v: any) => v.variant_ref),
+        );
+        updateArgs[variantsKey] = updateArgs[variantsKey].filter(
+          (rv: any) => {
+            const ref = rv.variantId ?? rv.variant_id ?? rv.id ?? "";
+            return activeVariantRefs.has(ref);
+          },
+        );
+      }
     }
 
     const updatePayload = await safeCall(() =>
@@ -1385,12 +1406,44 @@ export class PrivateDsersProvider implements ImportProvider {
       }
     }
 
+    const rawOptions: Record<string, any>[] = Array.isArray(item.options) ? item.options : [];
+    const normalizedOptions = rawOptions
+      .filter((o: any) => o && typeof o === "object" && o.name)
+      .map((o: any) => ({
+        id: String(o.optionId ?? o.id ?? ""),
+        name: String(o.name),
+        values: Array.isArray(o.values)
+          ? o.values
+              .filter((v: any) => v && typeof v === "object")
+              .map((v: any) => ({
+                id: String(v.valueId ?? v.id ?? ""),
+                name: String(v.name ?? ""),
+                imgUrl: v.imgUrl ?? undefined,
+              }))
+          : [],
+      }));
+
+    for (const v of variants) {
+      const rawV = (variantsKey ? item[variantsKey] : [])?.[
+        variants.indexOf(v)
+      ];
+      if (rawV?.options && Array.isArray(rawV.options)) {
+        v.option_values = rawV.options.map((ov: any) => ({
+          optionId: String(ov.optionId ?? ""),
+          optionName: String(ov.optionName ?? ""),
+          valueId: String(ov.valueId ?? ""),
+          valueName: String(ov.valueName ?? ""),
+        }));
+      }
+    }
+
     const draft: Record<string, any> = {
       title: String(item[titleKey!] ?? ""),
       description_html: String(item[descriptionKey!] ?? ""),
       images,
       tags: rawTagsKey ? [...(item[rawTagsKey] ?? [])] : [],
       variants,
+      options: normalizedOptions,
       total_inventory: totalInventory,
       ship_to: shipToKey ? String(item[shipToKey] ?? "") : "",
       ship_from: fromCountryKey ? String(item[fromCountryKey] ?? "") : "",
@@ -1407,6 +1460,7 @@ export class PrivateDsersProvider implements ImportProvider {
       raw_variants: variantsKey
         ? structuredClone(item[variantsKey] ?? [])
         : [],
+      raw_options: structuredClone(rawOptions),
       price_edit_flag_key: priceEditFlagKey,
       min_price_key: minPriceKey,
       max_price_key: maxPriceKey,
@@ -1507,6 +1561,18 @@ export class PrivateDsersProvider implements ImportProvider {
       ]);
       if (stockKey && normalized.stock != null)
         rawVariant[stockKey] = coerceLike(rawVariant[stockKey], normalized.stock);
+
+      if (Array.isArray(normalized.option_values) && Array.isArray(rawVariant.options)) {
+        for (const normOv of normalized.option_values) {
+          const rawOv = rawVariant.options.find(
+            (ro: any) => String(ro.optionId ?? "") === normOv.optionId,
+          );
+          if (rawOv) {
+            if (normOv.optionName) rawOv.optionName = normOv.optionName;
+            if (normOv.valueName) rawOv.valueName = normOv.valueName;
+          }
+        }
+      }
     }
     return rawVariants;
   }
@@ -1516,6 +1582,31 @@ export class PrivateDsersProvider implements ImportProvider {
     fieldMap: Record<string, any>,
   ): Record<string, any> {
     return structuredClone(fieldMap.raw_supply ?? {});
+  }
+
+  private denormalizeOptions(
+    normalizedOptions: Record<string, any>[],
+    rawOptions: Record<string, any>[],
+  ): Record<string, any>[] {
+    return normalizedOptions.map((normOpt) => {
+      const rawOpt = rawOptions.find(
+        (r: any) => String(r.optionId ?? r.id ?? "") === normOpt.id,
+      );
+      const base = rawOpt ? structuredClone(rawOpt) : {};
+      base.optionId = normOpt.id;
+      base.name = normOpt.name;
+      base.values = (normOpt.values ?? []).map((nv: any) => {
+        const rawVal = rawOpt?.values?.find(
+          (rv: any) => String(rv.valueId ?? rv.id ?? "") === nv.id,
+        );
+        const vBase = rawVal ? structuredClone(rawVal) : {};
+        vBase.valueId = nv.id;
+        vBase.name = nv.name;
+        if (nv.imgUrl !== undefined) vBase.imgUrl = nv.imgUrl;
+        return vBase;
+      });
+      return base;
+    });
   }
 
   private denormalizeImages(

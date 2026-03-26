@@ -1,4 +1,4 @@
-const KNOWN_TOP_LEVEL_RULE_KEYS = new Set(["pricing", "content", "images", "variant_overrides", "instruction_text"]);
+const KNOWN_TOP_LEVEL_RULE_KEYS = new Set(["pricing", "content", "images", "variant_overrides", "option_edits", "instruction_text"]);
 const KNOWN_PRICING_KEYS = new Set(["mode", "multiplier", "fixed_markup", "round_digits"]);
 const KNOWN_CONTENT_KEYS = new Set([
   "title_override",
@@ -340,6 +340,9 @@ export function normalizeRules(
   const variantOverrides = _normalizeVariantOverrides(req.variant_overrides, warnings, errors);
   if (variantOverrides) effective.variant_overrides = variantOverrides;
 
+  const optionEdits = _normalizeOptionEdits(req.option_edits, warnings, errors);
+  if (optionEdits) effective.option_edits = optionEdits;
+
   const instructionText = req.instruction_text;
   if (instructionText != null && instructionText !== "") {
     if (typeof instructionText === "string") {
@@ -513,6 +516,147 @@ function _applyVariantOverrides(
   }
 }
 
+const KNOWN_OPTION_EDIT_ACTIONS = new Set(["rename_option", "rename_value", "remove_value", "remove_option"]);
+
+function _normalizeOptionEdits(
+  raw: unknown,
+  warnings: string[],
+  errors: string[],
+): Record<string, any>[] | null {
+  if (raw == null) return null;
+  if (!Array.isArray(raw)) {
+    errors.push("option_edits must be an array of edit actions.");
+    return null;
+  }
+  const result: Record<string, any>[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const edit = raw[i];
+    if (!edit || typeof edit !== "object" || Array.isArray(edit)) {
+      errors.push(`option_edits[${i}] must be an object.`);
+      continue;
+    }
+    const action = String(edit.action ?? "");
+    if (!KNOWN_OPTION_EDIT_ACTIONS.has(action)) {
+      errors.push(`option_edits[${i}]: unknown action '${action}'. Allowed: ${[...KNOWN_OPTION_EDIT_ACTIONS].join(", ")}.`);
+      continue;
+    }
+    if (!edit.option_name || typeof edit.option_name !== "string") {
+      errors.push(`option_edits[${i}]: 'option_name' (string) is required.`);
+      continue;
+    }
+    if ((action === "rename_value" || action === "remove_value") && (!edit.value_name || typeof edit.value_name !== "string")) {
+      errors.push(`option_edits[${i}]: '${action}' requires 'value_name' (string).`);
+      continue;
+    }
+    if (action === "rename_option" && (!edit.new_name || typeof edit.new_name !== "string")) {
+      errors.push(`option_edits[${i}]: 'rename_option' requires 'new_name' (string).`);
+      continue;
+    }
+    if (action === "rename_value" && (!edit.new_name || typeof edit.new_name !== "string")) {
+      errors.push(`option_edits[${i}]: 'rename_value' requires 'new_name' (string).`);
+      continue;
+    }
+    result.push(edit);
+  }
+  return result.length ? result : null;
+}
+
+function _applyOptionEdits(
+  draft: Record<string, any>,
+  edits: Record<string, any>[],
+  summary: Record<string, any>,
+): void {
+  const options: Record<string, any>[] = draft.options ?? [];
+  const variants: Record<string, any>[] = draft.variants ?? [];
+  let variantsRemoved = 0;
+
+  for (const edit of edits) {
+    const action = edit.action;
+    const optionName = String(edit.option_name);
+    const opt = options.find((o: any) => o.name === optionName);
+
+    if (!opt) {
+      summary.warnings.push(`option_edits: option '${optionName}' not found — skipped.`);
+      continue;
+    }
+
+    if (action === "rename_option") {
+      const newName = String(edit.new_name);
+      opt.name = newName;
+      for (const v of variants) {
+        if (!Array.isArray(v.option_values)) continue;
+        for (const ov of v.option_values) {
+          if (ov.optionId === opt.id) ov.optionName = newName;
+        }
+      }
+    } else if (action === "rename_value") {
+      const valueName = String(edit.value_name);
+      const newName = String(edit.new_name);
+      const val = opt.values.find((v: any) => v.name === valueName);
+      if (!val) {
+        summary.warnings.push(`option_edits: value '${valueName}' not found in option '${optionName}' — skipped.`);
+        continue;
+      }
+      val.name = newName;
+      for (const v of variants) {
+        if (!Array.isArray(v.option_values)) continue;
+        for (const ov of v.option_values) {
+          if (ov.optionId === opt.id && ov.valueId === val.id) {
+            ov.valueName = newName;
+          }
+        }
+        _rebuildVariantTitle(v);
+      }
+    } else if (action === "remove_value") {
+      const valueName = String(edit.value_name);
+      const valIdx = opt.values.findIndex((v: any) => v.name === valueName);
+      if (valIdx === -1) {
+        summary.warnings.push(`option_edits: value '${valueName}' not found in option '${optionName}' — skipped.`);
+        continue;
+      }
+      const removedVal = opt.values[valIdx];
+      opt.values.splice(valIdx, 1);
+      const before = variants.length;
+      for (let i = variants.length - 1; i >= 0; i--) {
+        const ov = variants[i].option_values;
+        if (Array.isArray(ov) && ov.some((o: any) => o.optionId === opt.id && o.valueId === removedVal.id)) {
+          variants.splice(i, 1);
+        }
+      }
+      variantsRemoved += before - variants.length;
+    } else if (action === "remove_option") {
+      const optIdx = options.findIndex((o: any) => o.id === opt.id);
+      if (optIdx !== -1) options.splice(optIdx, 1);
+      for (const v of variants) {
+        if (!Array.isArray(v.option_values)) continue;
+        v.option_values = v.option_values.filter((ov: any) => ov.optionId !== opt.id);
+        _rebuildVariantTitle(v);
+      }
+    }
+  }
+
+  draft.variants = variants;
+  draft.options = options;
+
+  if (variantsRemoved > 0) {
+    draft.total_inventory = variants.reduce(
+      (sum: number, v: Record<string, any>) => sum + (Number(v.stock) || 0),
+      0,
+    );
+  }
+
+  summary.applied.push({
+    rule_family: "option_edits",
+    edits_count: edits.length,
+    ...(variantsRemoved > 0 ? { variants_removed: variantsRemoved, variants_remaining: variants.length } : {}),
+  });
+}
+
+function _rebuildVariantTitle(v: Record<string, any>): void {
+  if (!Array.isArray(v.option_values) || !v.option_values.length) return;
+  v.title = v.option_values.map((ov: any) => ov.valueName).join(" / ");
+}
+
 export function applyRules(
   draft: Record<string, any>,
   rules: Record<string, any>,
@@ -532,6 +676,11 @@ export function applyRules(
   const variantOverrides = rules.variant_overrides;
   if (Array.isArray(variantOverrides) && variantOverrides.length) {
     _applyVariantOverrides(d, variantOverrides, summary);
+  }
+
+  const optionEdits = rules.option_edits;
+  if (Array.isArray(optionEdits) && optionEdits.length) {
+    _applyOptionEdits(d, optionEdits, summary);
   }
 
   const variants: Record<string, any>[] = d.variants ?? [];

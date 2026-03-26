@@ -545,3 +545,239 @@ describe("image rules — add_urls, reorder, drop warnings, URL validation", () 
     expect(result.errors ?? []).toHaveLength(0);
   });
 });
+
+// ═══════════════════════════════════════════════════
+// option_edits
+// ═══════════════════════════════════════════════════
+
+function mkOptDraft() {
+  return mkDraft(
+    [
+      {
+        variant_ref: "14:350850#Green Crocodile",
+        title: "Green Crocodile",
+        offer_price: 500,
+        supplier_price: 200,
+        sku: "GC-001",
+        stock: 10,
+        option_values: [
+          { optionId: "14", optionName: "Color", valueId: "350850", valueName: "Green Crocodile" },
+        ],
+      },
+      {
+        variant_ref: "14:350851#Pig",
+        title: "Pig",
+        offer_price: 600,
+        supplier_price: 300,
+        sku: "PG-001",
+        stock: 5,
+        option_values: [
+          { optionId: "14", optionName: "Color", valueId: "350851", valueName: "Pig" },
+        ],
+      },
+      {
+        variant_ref: "14:350852#Whale",
+        title: "Whale",
+        offer_price: 700,
+        supplier_price: 350,
+        sku: "WH-001",
+        stock: 20,
+        option_values: [
+          { optionId: "14", optionName: "Color", valueId: "350852", valueName: "Whale" },
+        ],
+      },
+    ],
+    {
+      options: [
+        {
+          id: "14",
+          name: "Color",
+          values: [
+            { id: "350850", name: "Green Crocodile" },
+            { id: "350851", name: "Pig" },
+            { id: "350852", name: "Whale" },
+          ],
+        },
+      ],
+      total_inventory: 35,
+    },
+  );
+}
+
+describe("option_edits — normalize", () => {
+  it("rejects non-array", () => {
+    const result = normalizeRules({ option_edits: "not array" });
+    expect(result.errors).toContainEqual(expect.stringContaining("must be an array"));
+  });
+
+  it("rejects unknown action", () => {
+    const result = normalizeRules({ option_edits: [{ action: "explode", option_name: "Color" }] });
+    expect(result.errors).toContainEqual(expect.stringContaining("unknown action"));
+  });
+
+  it("rejects missing option_name", () => {
+    const result = normalizeRules({ option_edits: [{ action: "rename_option", new_name: "X" }] });
+    expect(result.errors).toContainEqual(expect.stringContaining("option_name"));
+  });
+
+  it("rejects remove_value without value_name", () => {
+    const result = normalizeRules({ option_edits: [{ action: "remove_value", option_name: "Color" }] });
+    expect(result.errors).toContainEqual(expect.stringContaining("value_name"));
+  });
+
+  it("rejects rename_option without new_name", () => {
+    const result = normalizeRules({ option_edits: [{ action: "rename_option", option_name: "Color" }] });
+    expect(result.errors).toContainEqual(expect.stringContaining("new_name"));
+  });
+
+  it("rejects rename_value without new_name", () => {
+    const result = normalizeRules({
+      option_edits: [{ action: "rename_value", option_name: "Color", value_name: "Pig" }],
+    });
+    expect(result.errors).toContainEqual(expect.stringContaining("new_name"));
+  });
+
+  it("accepts valid rename_option", () => {
+    const result = normalizeRules({
+      option_edits: [{ action: "rename_option", option_name: "Color", new_name: "Style" }],
+    });
+    expect(result.errors ?? []).toHaveLength(0);
+    expect(result.effective_rules.option_edits).toHaveLength(1);
+  });
+
+  it("accepts valid remove_value", () => {
+    const result = normalizeRules({
+      option_edits: [{ action: "remove_value", option_name: "Color", value_name: "Pig" }],
+    });
+    expect(result.errors ?? []).toHaveLength(0);
+    expect(result.effective_rules.option_edits).toHaveLength(1);
+  });
+});
+
+describe("option_edits — apply", () => {
+  it("rename_option changes option name and variant option_values", () => {
+    const { draft, summary } = applyRules(
+      mkOptDraft(),
+      { option_edits: [{ action: "rename_option", option_name: "Color", new_name: "Style" }] },
+    );
+    expect(draft.options[0].name).toBe("Style");
+    expect(draft.variants[0].option_values[0].optionName).toBe("Style");
+    expect(summary.applied).toContainEqual(expect.objectContaining({ rule_family: "option_edits" }));
+  });
+
+  it("rename_value changes value name and rebuilds variant title", () => {
+    const { draft } = applyRules(
+      mkOptDraft(),
+      { option_edits: [{ action: "rename_value", option_name: "Color", value_name: "Green Crocodile", new_name: "Forest Green" }] },
+    );
+    expect(draft.options[0].values[0].name).toBe("Forest Green");
+    expect(draft.variants[0].option_values[0].valueName).toBe("Forest Green");
+    expect(draft.variants[0].title).toBe("Forest Green");
+  });
+
+  it("remove_value deletes matching variants and recalculates total_inventory", () => {
+    const { draft, summary } = applyRules(
+      mkOptDraft(),
+      { option_edits: [{ action: "remove_value", option_name: "Color", value_name: "Pig" }] },
+    );
+    expect(draft.variants).toHaveLength(2);
+    expect(draft.variants.map((v: any) => v.title)).toEqual(["Green Crocodile", "Whale"]);
+    expect(draft.options[0].values).toHaveLength(2);
+    expect(draft.options[0].values.map((v: any) => v.name)).toEqual(["Green Crocodile", "Whale"]);
+    expect(draft.total_inventory).toBe(30);
+    const optEdit = summary.applied.find((a: any) => a.rule_family === "option_edits");
+    expect(optEdit.variants_removed).toBe(1);
+    expect(optEdit.variants_remaining).toBe(2);
+  });
+
+  it("remove_option removes option dimension but keeps variants", () => {
+    const { draft } = applyRules(
+      mkOptDraft(),
+      { option_edits: [{ action: "remove_option", option_name: "Color" }] },
+    );
+    expect(draft.options).toHaveLength(0);
+    expect(draft.variants).toHaveLength(3);
+    for (const v of draft.variants) {
+      expect(v.option_values).toHaveLength(0);
+    }
+  });
+
+  it("warns when option_name not found", () => {
+    const { summary } = applyRules(
+      mkOptDraft(),
+      { option_edits: [{ action: "rename_option", option_name: "Size", new_name: "Dimension" }] },
+    );
+    expect(summary.warnings).toContainEqual(expect.stringContaining("'Size' not found"));
+  });
+
+  it("warns when value_name not found", () => {
+    const { summary } = applyRules(
+      mkOptDraft(),
+      { option_edits: [{ action: "remove_value", option_name: "Color", value_name: "Unicorn" }] },
+    );
+    expect(summary.warnings).toContainEqual(expect.stringContaining("'Unicorn' not found"));
+  });
+
+  it("multiple edits in sequence", () => {
+    const { draft } = applyRules(
+      mkOptDraft(),
+      {
+        option_edits: [
+          { action: "rename_value", option_name: "Color", value_name: "Green Crocodile", new_name: "Croc" },
+          { action: "remove_value", option_name: "Color", value_name: "Pig" },
+        ],
+      },
+    );
+    expect(draft.variants).toHaveLength(2);
+    expect(draft.variants[0].title).toBe("Croc");
+    expect(draft.options[0].values.map((v: any) => v.name)).toEqual(["Croc", "Whale"]);
+  });
+
+  it("remove_value removes all variants using that value even with multi-option products", () => {
+    const multiOptDraft = {
+      ...mkDraft([
+        {
+          variant_ref: "v1", title: "Red / S", offer_price: 500, supplier_price: 200, sku: "RS", stock: 5,
+          option_values: [
+            { optionId: "1", optionName: "Color", valueId: "r1", valueName: "Red" },
+            { optionId: "2", optionName: "Size", valueId: "s1", valueName: "S" },
+          ],
+        },
+        {
+          variant_ref: "v2", title: "Red / M", offer_price: 500, supplier_price: 200, sku: "RM", stock: 5,
+          option_values: [
+            { optionId: "1", optionName: "Color", valueId: "r1", valueName: "Red" },
+            { optionId: "2", optionName: "Size", valueId: "m1", valueName: "M" },
+          ],
+        },
+        {
+          variant_ref: "v3", title: "Blue / S", offer_price: 500, supplier_price: 200, sku: "BS", stock: 5,
+          option_values: [
+            { optionId: "1", optionName: "Color", valueId: "b1", valueName: "Blue" },
+            { optionId: "2", optionName: "Size", valueId: "s1", valueName: "S" },
+          ],
+        },
+      ]),
+      options: [
+        { id: "1", name: "Color", values: [{ id: "r1", name: "Red" }, { id: "b1", name: "Blue" }] },
+        { id: "2", name: "Size", values: [{ id: "s1", name: "S" }, { id: "m1", name: "M" }] },
+      ],
+      total_inventory: 15,
+    };
+    const { draft } = applyRules(multiOptDraft, {
+      option_edits: [{ action: "remove_value", option_name: "Color", value_name: "Red" }],
+    });
+    expect(draft.variants).toHaveLength(1);
+    expect(draft.variants[0].title).toBe("Blue / S");
+    expect(draft.total_inventory).toBe(5);
+  });
+
+  it("option_edits with empty draft.options does nothing gracefully", () => {
+    const plainDraft = mkDraft([mkV(100, 200)]);
+    const { draft, summary } = applyRules(plainDraft, {
+      option_edits: [{ action: "rename_option", option_name: "Color", new_name: "Style" }],
+    });
+    expect(draft.variants).toHaveLength(1);
+    expect(summary.warnings).toContainEqual(expect.stringContaining("not found"));
+  });
+});

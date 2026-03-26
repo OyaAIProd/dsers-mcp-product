@@ -855,6 +855,14 @@ export class ImportFlowService {
     }
 
     if (job.target_store) preview.store = job.target_store;
+    const options: Record<string, any>[] = final?.options ?? [];
+    if (options.length) {
+      preview.options = options.map((o: any) => ({
+        name: o.name,
+        values: (o.values ?? []).map((v: any) => v.name),
+      }));
+    }
+
     if (job.visibility_mode && job.visibility_mode !== "backend_only")
       preview.visibility = job.visibility_mode;
 

@@ -144,6 +144,19 @@ export function registerTools(
         "2) Once they have a public URL (https://...), pass it via images.add_urls or variant_overrides.image_url. " +
         "3) NEVER attempt to send raw image data through the conversation — it will fail or crash the context. " +
         "Per-variant images: use variant_overrides with image_url field to set a specific variant's image. " +
+        "OPTION EDITING (via rules_json option_edits key): " +
+        "Options define variant dimensions (e.g. Color, Size). Each option has values; each variant is a combination of option values. " +
+        "option_edits is an array of edit actions: " +
+        "- rename_option: {action:'rename_option', option_name:'Color', new_name:'Style'} — safe, renames the dimension label. " +
+        "- rename_value: {action:'rename_value', option_name:'Color', value_name:'Green Crocodile', new_name:'Forest Green'} — safe, renames a value and updates all associated variant titles. " +
+        "- remove_value: {action:'remove_value', option_name:'Color', value_name:'Pig'} — DESTRUCTIVE: permanently removes ALL variants that use this value. Cannot be undone without re-importing the product. " +
+        "- remove_option: {action:'remove_option', option_name:'Ships From'} — removes an entire option dimension from all variants (reduces option count but keeps variants). " +
+        "AGENT PROTOCOL for remove_value: " +
+        "1) ALWAYS call dsers.product.preview first to show the user the current options and variant count. " +
+        "2) Calculate how many variants will be deleted and tell the user explicitly (e.g. 'This will remove 3 of 12 variants permanently'). " +
+        "3) Get EXPLICIT user confirmation before proceeding. " +
+        "4) After applying, show the updated preview to confirm the result. " +
+        "To see current options, use dsers.product.preview — the response includes an 'options' field with name and values for each option. " +
         "RESPONSE FORMAT: " +
         "- title: product title (string). If content rules changed the title, returns title_before + title_after instead. " +
         "- sell_price: store listing price in dollars (number or {min,max} range). " +
@@ -225,13 +238,16 @@ export function registerTools(
               "images ({keep_first_n, drop_indexes, add_urls, reorder}) — " +
               "add_urls: array of public http/https URLs to add. reorder: array of indexes for new order. " +
               "WARNING: image deletion via drop_indexes is IRREVERSIBLE once pushed; confirm with user before removing images, " +
-              "variant_overrides (array of per-variant patches). " +
+              "variant_overrides (array of per-variant patches), " +
+              "option_edits (array of option edit actions — see OPTION EDITING section above). " +
               "fixed_markup is in dollars (e.g. 5.00 = add $5 to cost). multiplier is a ratio (e.g. 2.0 = 2x cost). " +
               "VARIANT_OVERRIDES: Each entry has 'match' (substring to match variant title or SKU) and optional " +
               "sell_price (dollars), compare_at_price (dollars), stock (integer), title (string), image_url (string). " +
               "Applied AFTER global pricing, so overrides take priority. " +
+              "OPTION_EDITS: Array of {action, option_name, value_name?, new_name?}. " +
+              "Actions: rename_option, rename_value, remove_value (DESTRUCTIVE — deletes variants!), remove_option. " +
               'Example: {"pricing":{"mode":"multiplier","multiplier":2.5},' +
-              '"variant_overrides":[{"match":"Green","sell_price":12.99,"compare_at_price":19.99}]}',
+              '"option_edits":[{"action":"remove_value","option_name":"Color","value_name":"Pig"}]}',
           ),
       },
       annotations: {
@@ -313,6 +329,8 @@ export function registerTools(
         "skus: ARRAY OF ARRAYS — first row is header [name, sell, compare_at, cost, qty, supplier_qty], " +
         "subsequent rows are data. Use variant_offset/variant_limit to paginate. " +
         "skus_more = remaining variants not shown. " +
+        "options: array of {name, values[]} describing variant dimensions (e.g. Color, Size). " +
+        "Use this to show the user available options before applying option_edits. " +
         "stock = store inventory, supplier_stock = supplier inventory. " +
         "ship_to = destination country, ship_from = origin country.",
       inputSchema: {

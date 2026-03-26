@@ -455,4 +455,43 @@ describe("ImportFlowService", () => {
       await expect(service.setProductVisibility({})).rejects.toThrow("required");
     });
   });
+
+  // ── Options in preview ──
+
+  describe("options in preview", () => {
+    it("exposes options in preview when present", async () => {
+      (provider.prepareCandidate as any).mockResolvedValueOnce({
+        provider_label: "Test",
+        provider_state: { import_item_id: "item-opt", field_map: {} },
+        draft: {
+          title: "Plush Toys",
+          description_html: "",
+          images: [],
+          tags: [],
+          variants: [
+            { variant_ref: "v1", title: "Red", supplier_price: 200, offer_price: 500, stock: 10, sku: "R" },
+            { variant_ref: "v2", title: "Blue", supplier_price: 200, offer_price: 500, stock: 10, sku: "B" },
+          ],
+          options: [
+            { id: "1", name: "Color", values: [{ id: "r1", name: "Red" }, { id: "b1", name: "Blue" }] },
+          ],
+          total_inventory: 20,
+        },
+        warnings: [],
+      });
+      const result = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/opts.html",
+      });
+      expect(result.options).toEqual([
+        { name: "Color", values: ["Red", "Blue"] },
+      ]);
+    });
+
+    it("omits options from preview when not present", async () => {
+      const result = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/1234567890.html",
+      });
+      expect(result).not.toHaveProperty("options");
+    });
+  });
 });
