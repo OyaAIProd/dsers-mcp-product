@@ -380,7 +380,9 @@ export class ImportFlowService {
     if (job._recovered && !job.draft) {
       await this.recoverDraft(job);
     }
-    return this.preview(job);
+    const variantOffset = Number(payload.variant_offset ?? 0) || 0;
+    const variantLimit = Number(payload.variant_limit ?? 0) || 0;
+    return this.preview(job, variantOffset, variantLimit);
   }
 
   async reapplyRules(
@@ -737,10 +739,16 @@ export class ImportFlowService {
     return result;
   }
 
-  private preview(job: Record<string, any>): Record<string, any> {
+  private preview(
+    job: Record<string, any>,
+    variantOffset = 0,
+    variantLimit = 0,
+  ): Record<string, any> {
     const original = job.original_draft;
     const final = job.draft;
-    const MAX_VARIANTS = 3;
+    const DEFAULT_MAX = 3;
+    const maxVariants = variantLimit > 0 ? variantLimit : DEFAULT_MAX;
+    const offset = Math.max(0, variantOffset);
 
     const variants = final?.variants ?? [];
     const preview: Record<string, any> = {
@@ -791,9 +799,10 @@ export class ImportFlowService {
     if (shipFrom) preview.ship_from = shipFrom;
 
     if (variants.length) {
+      const sliced = variants.slice(offset, offset + maxVariants);
       preview.skus = [
         ["name", "sell", "compare_at", "cost", "qty", "supplier_qty"],
-        ...variants.slice(0, MAX_VARIANTS).map((v: any) => [
+        ...sliced.map((v: any) => [
           v.title,
           v.offer_price != null ? centsToDollars(Number(v.offer_price)) : null,
           v.compare_at_price != null ? centsToDollars(Number(v.compare_at_price)) : null,
@@ -802,7 +811,9 @@ export class ImportFlowService {
           v.supplier_stock ?? null,
         ]),
       ];
-      if (variants.length > MAX_VARIANTS) preview.skus_more = variants.length - MAX_VARIANTS;
+      const remaining = variants.length - offset - sliced.length;
+      if (remaining > 0) preview.skus_more = remaining;
+      if (offset > 0) preview.skus_offset = offset;
     }
 
     if (job.target_store) preview.store = job.target_store;

@@ -407,6 +407,16 @@ describe("variant_overrides application", () => {
     expect(result.variants[0].title).toBe("New Name");
   });
 
+  it("overrides image_url", () => {
+    const draft = mkDraft([mkV(400, 0)]);
+    draft.variants[0].title = "Photo Variant";
+    draft.variants[0].image_url = "https://old.img/1.jpg";
+    const { draft: result } = applyRules(draft, {
+      variant_overrides: [{ match: "photo", image_url: "https://new.img/2.jpg" }],
+    });
+    expect(result.variants[0].image_url).toBe("https://new.img/2.jpg");
+  });
+
   it("matches by sku substring", () => {
     const draft = mkDraft([mkV(400, 0)]);
     draft.variants[0].title = "Something";

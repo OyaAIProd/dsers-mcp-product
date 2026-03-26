@@ -198,7 +198,7 @@ export function registerTools(
               "variant_overrides (array of per-variant patches). " +
               "fixed_markup is in dollars (e.g. 5.00 = add $5 to cost). multiplier is a ratio (e.g. 2.0 = 2x cost). " +
               "VARIANT_OVERRIDES: Each entry has 'match' (substring to match variant title or SKU) and optional " +
-              "sell_price (dollars), compare_at_price (dollars), stock (integer), title (string). " +
+              "sell_price (dollars), compare_at_price (dollars), stock (integer), title (string), image_url (string). " +
               "Applied AFTER global pricing, so overrides take priority. " +
               'Example: {"pricing":{"mode":"multiplier","multiplier":2.5},' +
               '"variant_overrides":[{"match":"Green","sell_price":12.99,"compare_at_price":19.99}]}',
@@ -283,6 +283,20 @@ export function registerTools(
         job_id: z
           .string()
           .describe("Job ID returned by dsers.product.import."),
+        variant_offset: z
+          .number()
+          .optional()
+          .describe(
+            "Start index for variant/SKU listing (0-based). Default: 0. " +
+              "Use with variant_limit to paginate through products with many variants.",
+          ),
+        variant_limit: z
+          .number()
+          .optional()
+          .describe(
+            "Max number of variants to return in skus table. Default: 3. " +
+              "Set higher (e.g. 20) to see more variants. skus_more shows how many remain.",
+          ),
       },
       annotations: {
         readOnlyHint: true,
@@ -291,9 +305,13 @@ export function registerTools(
         openWorldHint: false,
       },
     },
-    async ({ job_id }) => {
+    async ({ job_id, variant_offset, variant_limit }) => {
       try {
-        return ok(await svc().getImportPreview({ job_id }));
+        return ok(await svc().getImportPreview({
+          job_id,
+          variant_offset: variant_offset ?? 0,
+          variant_limit: variant_limit ?? 0,
+        }));
       } catch (err) { return fail(err); }
     },
   );

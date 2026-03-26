@@ -204,7 +204,7 @@ function _normalizeImages(
 }
 
 const KNOWN_VARIANT_OVERRIDE_KEYS = new Set([
-  "match", "sell_price", "compare_at_price", "stock", "title",
+  "match", "sell_price", "compare_at_price", "stock", "title", "image_url",
 ]);
 
 function _normalizeVariantOverrides(
@@ -251,8 +251,9 @@ function _normalizeVariantOverrides(
           continue;
         }
         normalized[key] = val;
-      } else if (key === "title") {
-        normalized[key] = String(entry[key]);
+      } else if (key === "title" || key === "image_url") {
+        const sv = String(entry[key] ?? "").trim();
+        if (sv) normalized[key] = sv;
       }
     }
     if (Object.keys(normalized).length > 1) result.push(normalized);
@@ -410,6 +411,9 @@ function _applyVariantOverrides(
       }
       if (override.title != null) {
         v.title = String(override.title);
+      }
+      if (override.image_url != null) {
+        v.image_url = String(override.image_url);
       }
       matched++;
     }

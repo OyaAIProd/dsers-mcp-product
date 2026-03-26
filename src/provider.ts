@@ -158,7 +158,7 @@ export class PrivateDsersProvider implements ImportProvider {
         },
         variant_overrides: {
           supported: true,
-          fields: ["sell_price", "compare_at_price", "stock", "title"],
+          fields: ["sell_price", "compare_at_price", "stock", "title", "image_url"],
         },
         visibility: { supported_modes: visibilityModes },
       },
@@ -1499,6 +1499,12 @@ export class PrivateDsersProvider implements ImportProvider {
       if (skuKey) rawVariant[skuKey] = normalized.sku;
       if (imageKey && normalized.image_url)
         rawVariant[imageKey] = normalized.image_url;
+
+      const stockKey = firstMatchingKey(rawVariant, [
+        "stock", "quantity", "inventory", "availableStock", "skuStock",
+      ]);
+      if (stockKey && normalized.stock != null)
+        rawVariant[stockKey] = coerceLike(rawVariant[stockKey], normalized.stock);
     }
     return rawVariants;
   }
