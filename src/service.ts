@@ -435,8 +435,7 @@ export class ImportFlowService {
     if (payload.visibility_mode) job.visibility_mode = payload.visibility_mode;
 
     const saveWarnings: string[] = [];
-    const hasRuleChanges = ruled.summary?.applied?.length > 0;
-    if (hasRuleChanges && job.provider_state) {
+    if (job.provider_state) {
       try {
         const saveResult = await this.provider.saveDraft(
           job.provider_state,

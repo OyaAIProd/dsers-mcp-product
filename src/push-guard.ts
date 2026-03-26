@@ -102,6 +102,12 @@ export function validatePushSafety(
       "All variants have zero stock. Pushing a product with no inventory " +
       "will create a listing that cannot be fulfilled. Import a different product or wait for restocking.",
     );
+  } else if (!stockDataAvailable) {
+    warnings.push(
+      "No stock/inventory data available for any variant. " +
+      "Cannot verify inventory levels — the product may have zero stock. " +
+      "Confirm stock availability with the user before pushing.",
+    );
   } else if (
     stockDataAvailable &&
     totalStock != null &&

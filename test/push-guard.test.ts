@@ -132,9 +132,9 @@ describe("validatePushSafety", () => {
       expect(r.warnings.filter(w => w.includes("stock") || w.includes("inventory"))).toHaveLength(0);
     });
 
-    it("null stock → no stock warnings", () => {
+    it("null stock → warns about unavailable stock data", () => {
       const r = validatePushSafety(mkDraft([mkVariant(10, 5, null)]));
-      expect(r.warnings.filter(w => w.includes("stock") || w.includes("inventory"))).toHaveLength(0);
+      expect(r.warnings.filter(w => w.includes("No stock/inventory data"))).toHaveLength(1);
       expect(r.blocked.filter(b => b.includes("stock"))).toHaveLength(0);
     });
   });

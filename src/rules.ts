@@ -448,6 +448,14 @@ export function applyRules(
     _applyVariantOverrides(d, variantOverrides, summary);
   }
 
+  const variants: Record<string, any>[] = d.variants ?? [];
+  if (variants.length) {
+    d.total_inventory = variants.reduce(
+      (sum: number, v: Record<string, any>) => sum + (Number(v.stock) || 0),
+      0,
+    );
+  }
+
   if (rules.instruction_text) {
     summary.warnings.push(
       "Freeform instruction_text is recorded for operator context, but only structured rules are applied automatically in this MVP.",

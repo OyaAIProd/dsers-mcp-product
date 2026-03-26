@@ -128,7 +128,7 @@ export function registerTools(
         "CONTENT RULES (via rules_json content key): " +
         "title_override replaces the entire title. title_prefix/title_suffix wrap the original title. " +
         "description_override_html replaces the full description (HTML string). " +
-        "description_append_html appends HTML after the original. tags_add is a comma-separated tag string. " +
+        "description_append_html appends HTML after the original. tags_add is an array of strings (e.g. [\"summer\",\"sale\"]). NOTE: tags are applied to the draft but NOT persisted to DSers in the current version — they will be sent during push to Shopify. " +
         "Content rules are cumulative with pricing rules — include both in one rules_json if needed. " +
         "PRICE SEMANTICS: sell_price = store listing price (Shopify 'price'). " +
         "cost = supplier purchase price. no_markup=true when sell_price equals cost. " +
@@ -184,8 +184,8 @@ export function registerTools(
           .optional()
           .describe(
             "Product visibility after push. " +
-              "backend_only (default): saved as draft, not visible to shoppers. " +
-              "sell_immediately: published and visible on the storefront.",
+              "backend_only (default): saved as draft, not visible to shoppers — SAFE, no financial risk. " +
+              "sell_immediately: published and LIVE on the storefront — RISK: product becomes purchasable immediately, verify pricing and inventory before using. Always confirm with user before setting this.",
           ),
         rules_json: z
           .string()
@@ -193,8 +193,8 @@ export function registerTools(
           .describe(
             "Optional rules as JSON string applied to all items. " +
               "Keys: pricing ({mode, multiplier, fixed_markup, round_digits}), " +
-              "content ({title_override, title_prefix, title_suffix, description_override_html, description_append_html, tags_add}), " +
-              "images ({keep_first_n, drop_indexes}), " +
+              "content ({title_override, title_prefix, title_suffix, description_override_html, description_append_html, tags_add:[\"tag1\",\"tag2\"]}), " +
+              "images ({keep_first_n, drop_indexes}) — WARNING: image deletion via drop_indexes is IRREVERSIBLE once pushed; confirm with user before removing images, " +
               "variant_overrides (array of per-variant patches). " +
               "fixed_markup is in dollars (e.g. 5.00 = add $5 to cost). multiplier is a ratio (e.g. 2.0 = 2x cost). " +
               "VARIANT_OVERRIDES: Each entry has 'match' (substring to match variant title or SKU) and optional " +
@@ -330,8 +330,8 @@ export function registerTools(
           .describe("Job ID returned by dsers.product.import."),
         visibility_mode: z.string().describe(
           "New visibility mode. " +
-            "backend_only: save as draft, not visible to shoppers. " +
-            "sell_immediately: publish to storefront.",
+            "backend_only: save as draft, not visible to shoppers — SAFE. " +
+            "sell_immediately: publish and LIVE on storefront — RISK: product becomes purchasable immediately. Confirm with user first.",
         ),
       },
       annotations: {
@@ -395,7 +395,7 @@ export function registerTools(
           .optional()
           .describe(
             "Override the visibility mode set during prepare. " +
-              "backend_only: draft. sell_immediately: published.",
+              "backend_only: draft — SAFE. sell_immediately: published and LIVE — RISK: confirm pricing/inventory with user first.",
           ),
         push_options_json: z
           .string()
