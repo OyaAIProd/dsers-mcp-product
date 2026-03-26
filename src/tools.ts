@@ -130,11 +130,25 @@ export function registerTools(
         "description_override_html replaces the full description (HTML string). " +
         "description_append_html appends HTML after the original. tags_add is an array of strings (e.g. [\"summer\",\"sale\"]). NOTE: tags are applied to the draft but NOT persisted to DSers in the current version — they will be sent during push to Shopify. " +
         "Content rules are cumulative with pricing rules — include both in one rules_json if needed. " +
-        "PRICE SEMANTICS: sell_price = store listing price (Shopify 'price'). " +
-        "cost = supplier purchase price. no_markup=true when sell_price equals cost. " +
-        "skus: header [name, sell, compare_at, cost, qty, supplier_qty], then data rows. " +
-        "Returns: job_id, status, title, sell_price, compare_at_price, cost, no_markup, variants_count, " +
-        "images, skus, stock, supplier_stock, ship_to, ship_from, warnings.",
+        "RESPONSE FORMAT: " +
+        "- title: product title (string). If content rules changed the title, returns title_before + title_after instead. " +
+        "- sell_price: store listing price in dollars (number or {min,max} range). " +
+        "- cost: supplier purchase price in dollars. " +
+        "- compare_at_price: Shopify strikethrough/original price in dollars. " +
+        "- no_markup: true when sell_price equals cost — means user has NOT set a pricing rule yet, suggest they add one. " +
+        "- desc_changed: true if content rules modified the description. " +
+        "- variants_count: total number of variants/SKUs. " +
+        "- skus: variant table as ARRAY OF ARRAYS (NOT objects). First element is header row, rest are data rows. " +
+        "  Example: [[\"name\",\"sell\",\"compare_at\",\"cost\",\"qty\",\"supplier_qty\"],[\"Red/M\",5.02,10.00,2.51,100,500]]. " +
+        "  To read a variant: header[i] is the column name, row[i] is the value. Default shows first 3 variants. " +
+        "- skus_more: number of remaining variants not shown (use dsers.product.preview with variant_offset/variant_limit to paginate). " +
+        "- skus_offset: current offset (0 if omitted). " +
+        "- stock: total store inventory. stock_low: true if stock < 5 units. " +
+        "- supplier_stock: total supplier inventory (may differ from store stock). " +
+        "- ship_to: destination country. ship_from: origin/warehouse country. " +
+        "- images: number of product images. " +
+        "- store: target store name (if set). visibility: visibility mode (only shown if not backend_only). " +
+        "- warnings: array of alert strings (max 5).",
       inputSchema: {
         job_id: z
           .string()
@@ -276,9 +290,15 @@ export function registerTools(
       title: "Import Draft Preview",
       description:
         "Reload preview for an import job. Same response shape as dsers.product.import. " +
-        "sell_price = store listing price, compare_at_price = strikethrough/original price, cost = supplier price. " +
-        "ship_to = destination country, ship_from = origin country. " +
-        "stock = store inventory, supplier_stock = actual supplier inventory (may differ).",
+        "Use this to re-read the current draft state or paginate through variants. " +
+        "Key fields: sell_price (store listing price, dollars), cost (supplier price, dollars), " +
+        "compare_at_price (strikethrough price, dollars). " +
+        "Title: returns 'title' if unchanged, or 'title_before' + 'title_after' if content rules modified it. " +
+        "skus: ARRAY OF ARRAYS — first row is header [name, sell, compare_at, cost, qty, supplier_qty], " +
+        "subsequent rows are data. Use variant_offset/variant_limit to paginate. " +
+        "skus_more = remaining variants not shown. " +
+        "stock = store inventory, supplier_stock = supplier inventory. " +
+        "ship_to = destination country, ship_from = origin country.",
       inputSchema: {
         job_id: z
           .string()
@@ -360,7 +380,10 @@ export function registerTools(
         "Three modes: (1) Single push — provide job_id + target_store. " +
         "(2) Batch push — provide job_ids_json with an array of job IDs or objects; takes priority over job_id. " +
         "(3) Multi-store push — provide job_id + target_stores_json to push one product to multiple stores. " +
-        "Returns per-job results: job_id, status, target_store, visibility_applied, push_options_applied, job_summary, warnings.",
+        "SAFETY RESPONSE: If checks fail, response includes 'blocked' (array of reasons push was rejected — must fix before retrying) " +
+        "and/or 'warnings' (array of risk alerts — push proceeds but user should be informed). " +
+        "blocked = hard stop (e.g. sell below cost), warnings = soft alert (e.g. low margin). " +
+        "On success, returns per-job: job_id, status, target_store, visibility_applied, push_options_applied, job_summary, warnings.",
       inputSchema: {
         job_id: z
           .string()
@@ -506,10 +529,18 @@ export function registerTools(
         "Permanently delete a product from the DSers import list. " +
         "IRREVERSIBLE — the product cannot be recovered after deletion. " +
         "Requires explicit confirmation (confirm=true) to execute. " +
-        "If called without confirm=true, returns a confirmation prompt. " +
-        "NOTE: Deleting from the import list does NOT remove products already pushed to a store. " +
-        "AGENT PROTOCOL: Always show the user the product title/URL before asking for confirmation. " +
-        "Never set confirm=true without the user's explicit consent.",
+        "If called without confirm=true, returns a confirmation prompt — show this to the user. " +
+        "SCOPE: Only removes the product from DSers import list (pre-push staging area). " +
+        "Products already pushed to Shopify/Wix stores are NOT affected — " +
+        "to remove a store listing, use the Shopify/Wix admin directly. " +
+        "BUSINESS CONTEXT: Deleting from import list means losing the supplier mapping " +
+        "(link between the store product and the AliExpress/Alibaba supplier). " +
+        "If the user wants to re-import later, they will need the original supplier URL. " +
+        "AGENT PROTOCOL: Before calling with confirm=true, always: " +
+        "1) Show the user the product title and supplier URL. " +
+        "2) Warn that this cannot be undone. " +
+        "3) Get explicit user consent (e.g. 'yes, delete it'). " +
+        "Never set confirm=true without the user's explicit approval.",
       inputSchema: {
         import_item_id: z
           .string()
@@ -664,7 +695,7 @@ export function registerTools(
               "\nWorkflow:\n" +
               "1) dsers.store.discover — find the target store.\n" +
               "2) dsers.product.import with the URL (no content rules yet) — get the raw preview.\n" +
-              "3) Review the title_after and description_html_snippet from the preview.\n" +
+              "3) Review the 'title' from the preview (first import has no title_after since no rules applied yet).\n" +
               "4) [YOU DO THIS] Rewrite the title: remove supplier noise like [HOT], brand spam, ALL-CAPS. " +
               "Make it clean, keyword-rich, and appealing to shoppers" +
               (target_audience ? ` (audience: ${target_audience})` : "") + ".\n" +
