@@ -201,13 +201,13 @@ dsers-mcp-product/
 
 | # | Tool | What it does |
 |---|------|-------------|
-| 1 | `dsers.store.discover` | See your connected stores, available shipping methods, and what rules you can apply |
-| 2 | `dsers.rules.validate` | Test your pricing or title rules before applying — catches mistakes early |
-| 3 | `dsers.product.import` | Paste a product URL, optionally apply pricing/title rules, and get a preview before pushing |
-| 4 | `dsers.product.preview` | Review a product you already imported — title, price, variants, stock at a glance |
-| 5 | `dsers.product.visibility` | Set whether the product shows up in your store or stays as a hidden draft |
-| 6 | `dsers.store.push` | Send products to your Shopify or Wix store — one at a time, in bulk, or to all stores at once |
-| 7 | `dsers.job.status` | Check if a push finished and whether it succeeded |
+| 1 | `dsers_store_discover` | See your connected stores, available shipping methods, and what rules you can apply |
+| 2 | `dsers_rules_validate` | Test your pricing or title rules before applying — catches mistakes early |
+| 3 | `dsers_product_import` | Paste a product URL, optionally apply pricing/title rules, and get a preview before pushing |
+| 4 | `dsers_product_preview` | Review a product you already imported — title, price, variants, stock at a glance |
+| 5 | `dsers_product_visibility` | Set whether the product shows up in your store or stays as a hidden draft |
+| 6 | `dsers_store_push` | Send products to your Shopify or Wix store — one at a time, in bulk, or to all stores at once |
+| 7 | `dsers_job_status` | Check if a push finished and whether it succeeded |
 
 All tools return clear error messages so your AI agent knows what went wrong and what to do next — no cryptic error codes.
 
@@ -226,10 +226,10 @@ Ready-made workflows your AI client can use directly:
 
 | Prompt | Description |
 |--------|-------------|
-| `dsers.workflow.quick-import` | Import a single product and push to store as draft |
-| `dsers.workflow.bulk-import` | Batch import with pricing multiplier |
-| `dsers.workflow.multi-push` | Push one product to all connected stores |
-| `dsers.workflow.seo-optimize` | Import, AI-rewrite title & description for SEO, then push |
+| `dsers_workflow_quick-import` | Import a single product and push to store as draft |
+| `dsers_workflow_bulk-import` | Batch import with pricing multiplier |
+| `dsers_workflow_multi-push` | Push one product to all connected stores |
+| `dsers_workflow_seo-optimize` | Import, AI-rewrite title & description for SEO, then push |
 
 ### Environment Variables
 
@@ -421,13 +421,13 @@ npx @smithery/cli dev ./src/index.ts
 
 | # | 工具 | 干什么的 |
 |---|------|---------|
-| 1 | `dsers.store.discover` | 查看你绑定了哪些店铺、有哪些配送方式、能用什么规则 |
-| 2 | `dsers.rules.validate` | 先试试定价或标题规则对不对，不会真改东西 |
-| 3 | `dsers.product.import` | 贴个商品链接，可以顺便加定价/标题规则，推送前先给你看预览 |
-| 4 | `dsers.product.preview` | 看一下已经导入的商品 — 标题、价格、变体、库存一目了然 |
-| 5 | `dsers.product.visibility` | 设置商品在店铺里是上架展示还是隐藏草稿 |
-| 6 | `dsers.store.push` | 把商品推到你的 Shopify 或 Wix 店铺 — 单个推、批量推、或一次推到所有店铺 |
-| 7 | `dsers.job.status` | 看看推送完了没、成功了没 |
+| 1 | `dsers_store_discover` | 查看你绑定了哪些店铺、有哪些配送方式、能用什么规则 |
+| 2 | `dsers_rules_validate` | 先试试定价或标题规则对不对，不会真改东西 |
+| 3 | `dsers_product_import` | 贴个商品链接，可以顺便加定价/标题规则，推送前先给你看预览 |
+| 4 | `dsers_product_preview` | 看一下已经导入的商品 — 标题、价格、变体、库存一目了然 |
+| 5 | `dsers_product_visibility` | 设置商品在店铺里是上架展示还是隐藏草稿 |
+| 6 | `dsers_store_push` | 把商品推到你的 Shopify 或 Wix 店铺 — 单个推、批量推、或一次推到所有店铺 |
+| 7 | `dsers_job_status` | 看看推送完了没、成功了没 |
 
 报错时会返回清晰的消息，AI 助手能看懂出了什么问题、该怎么办 — 不会给你一串看不懂的错误码。
 
@@ -446,10 +446,10 @@ MCP 客户端可直接展示给用户的工作流模板：
 
 | 提示 | 说明 |
 |------|------|
-| `dsers.workflow.quick-import` | 一键导入单个商品并推送为草稿 |
-| `dsers.workflow.bulk-import` | 批量导入 + 统一定价倍率 |
-| `dsers.workflow.multi-push` | 一个商品推送到所有店铺 |
-| `dsers.workflow.seo-optimize` | 导入后 AI 重写标题和描述做 SEO 优化，再推送 |
+| `dsers_workflow_quick-import` | 一键导入单个商品并推送为草稿 |
+| `dsers_workflow_bulk-import` | 批量导入 + 统一定价倍率 |
+| `dsers_workflow_multi-push` | 一个商品推送到所有店铺 |
+| `dsers_workflow_seo-optimize` | 导入后 AI 重写标题和描述做 SEO 优化，再推送 |
 
 ### 后续计划
 

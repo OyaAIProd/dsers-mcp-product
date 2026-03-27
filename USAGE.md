@@ -116,28 +116,28 @@ openclaw mcp list
 > "Import this AliExpress product and push it to my Shopify store as a draft"
 
 The agent will:
-1. Call `dsers.store.discover` to find your store
-2. Call `dsers.product.import` with the URL
+1. Call `dsers_store_discover` to find your store
+2. Call `dsers_product_import` with the URL
 3. Show you the preview (title, price, variants)
-4. Call `dsers.store.push` with visibility_mode = backend_only
+4. Call `dsers_store_push` with visibility_mode = backend_only
 
 #### 2. Bulk Import with Pricing
 
 > "Import these 5 products and mark them up 3x"
 
 The agent will:
-1. Call `dsers.store.discover`
-2. Call `dsers.product.import` with `source_urls_json` and `rules_json: {"pricing": {"mode": "multiplier", "multiplier": 3}}`
+1. Call `dsers_store_discover`
+2. Call `dsers_product_import` with `source_urls_json` and `rules_json: {"pricing": {"mode": "multiplier", "multiplier": 3}}`
 3. Show previews for all 5 products
-4. Call `dsers.store.push` with `job_ids_json`
+4. Call `dsers_store_push` with `job_ids_json`
 
 #### 3. Multi-Store Push
 
 > "Push this product to all my stores"
 
 The agent will:
-1. Call `dsers.store.discover` to get the store list
-2. Call `dsers.store.push` with `target_stores_json` containing all store names
+1. Call `dsers_store_discover` to get the store list
+2. Call `dsers_store_push` with `target_stores_json` containing all store names
 
 #### 4. Custom Title + Images
 
@@ -151,10 +151,10 @@ Rules: `{"content": {"title_prefix": "Premium "}, "images": {"keep_first_n": 3}}
 A: 1688 links are recognized, but your DSers account needs to have 1688 source authorization enabled. If you don't have it, the import will fail with an error message.
 
 **Q: What happens if a push fails?**
-A: Check the `warnings` array in the response. The most common cause is a missing shipping profile. Call `dsers.store.discover` to check available profiles.
+A: Check the `warnings` array in the response. The most common cause is a missing shipping profile. Call `dsers_store_discover` to check available profiles.
 
 **Q: Can I edit the product after preparing but before pushing?**
-A: The rules are applied at prepare time. To change rules, call `dsers.product.import` again with the updated rules.
+A: The rules are applied at prepare time. To change rules, call `dsers_product_import` again with the updated rules.
 
 ---
 
@@ -266,4 +266,4 @@ openclaw mcp list
 A: 1688 链接可以识别，但需要你的 DSers 账号开通了 1688 来源权限。没开通的话导入会报错提示。
 
 **Q: 推送失败怎么办？**
-A: 检查响应中的 `warnings` 数组。最常见的原因是缺少配送方案。调用 `dsers.store.discover` 查看可用方案。
+A: 检查响应中的 `warnings` 数组。最常见的原因是缺少配送方案。调用 `dsers_store_discover` 查看可用方案。

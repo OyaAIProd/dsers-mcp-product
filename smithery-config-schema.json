@@ -25,7 +25,7 @@
     "default_store": {
       "type": "string",
       "title": "Default Store",
-      "description": "Default target store name. Skips store selection when pushing to one store. Use the display_name from dsers.store.discover.",
+      "description": "Default target store name. Skips store selection when pushing to one store. Use the display_name from dsers_store_discover.",
       "x-order": 4,
       "x-from": { "header": "x-dsers-default-store" }
     },

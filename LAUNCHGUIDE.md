@@ -47,13 +47,13 @@ Business Tools
 - "Import this product and push to my store: https://www.aliexpress.com/item/1005009871053792.html"
 - "Search for wireless earbuds on Accio, import the best one, price it at 3x, and list it on Shopify"
 - "Batch import these 5 products and push them all as drafts"
-- Tool: dsers.store.discover — Find connected stores, shipping profiles, and available rules
-- Tool: dsers.product.import — Import from supplier URL(s), apply pricing/content rules, get preview
-- Tool: dsers.store.push — Push products to Shopify or Wix (single, batch, or multi-store)
-- Tool: dsers.rules.validate — Dry-run rule validation before importing
-- Tool: dsers.product.preview — Reload a saved import preview
-- Tool: dsers.product.visibility — Toggle draft/published visibility
-- Tool: dsers.job.status — Check push result and job state
+- Tool: dsers_store_discover — Find connected stores, shipping profiles, and available rules
+- Tool: dsers_product_import — Import from supplier URL(s), apply pricing/content rules, get preview
+- Tool: dsers_store_push — Push products to Shopify or Wix (single, batch, or multi-store)
+- Tool: dsers_rules_validate — Dry-run rule validation before importing
+- Tool: dsers_product_preview — Reload a saved import preview
+- Tool: dsers_product_visibility — Toggle draft/published visibility
+- Tool: dsers_job_status — Check push result and job state
 
 ## Tags
 

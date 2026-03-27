@@ -81,7 +81,7 @@ describe("formatErrorForAgent", () => {
   });
 
   describe("no reference to non-existent tools", () => {
-    it("push-guard action mentions re-apply mode, not dsers.product.rules.reapply", () => {
+    it("push-guard action mentions re-apply mode, not dsers_product_rules_reapply", () => {
       const result = formatErrorForAgent(new Error("Push blocked by safety check:\nBad price"));
       expect(result).not.toContain("dsers_product_rules_reapply");
       expect(result).toContain("re-apply mode");

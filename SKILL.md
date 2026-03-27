@@ -50,8 +50,8 @@ Use this logic every time you encounter an auth-related issue:
 - If all methods fail: suggest `DSERS_TOKEN` env var as the last resort, or ask the user to retry `login` on a machine with a browser.
 
 **Scenario 5: Proactive auth check**
-- Call `dsers.store.discover` at the start of any workflow. If it succeeds, auth is valid. If it returns an auth error, handle it BEFORE attempting imports or pushes.
-- Do NOT attempt `dsers.product.import` or `dsers.store.push` without confirming auth works first.
+- Call `dsers_store_discover` at the start of any workflow. If it succeeds, auth is valid. If it returns an auth error, handle it BEFORE attempting imports or pushes.
+- Do NOT attempt `dsers_product_import` or `dsers_store_push` without confirming auth works first.
 
 ### Rules for you (the agent)
 
@@ -66,13 +66,13 @@ Use this logic every time you encounter an auth-related issue:
 
 Always follow this order:
 
-1. `dsers.store.discover` — discover stores, shipping profiles, supported rules
-2. `dsers.rules.validate` — (optional) dry-run rule validation before importing
-3. `dsers.product.import` — import from URL(s), apply rules, get preview with job_id
-4. `dsers.product.preview` — (optional) reload a saved preview
-5. `dsers.product.visibility` — (optional) toggle `backend_only` / `sell_immediately`
-6. `dsers.store.push` — push to store(s)
-7. `dsers.job.status` — verify push result
+1. `dsers_store_discover` — discover stores, shipping profiles, supported rules
+2. `dsers_rules_validate` — (optional) dry-run rule validation before importing
+3. `dsers_product_import` — import from URL(s), apply rules, get preview with job_id
+4. `dsers_product_preview` — (optional) reload a saved preview
+5. `dsers_product_visibility` — (optional) toggle `backend_only` / `sell_immediately`
+6. `dsers_store_push` — push to store(s)
+7. `dsers_job_status` — verify push result
 
 Step 1 is required before any import — it returns the store list, available shipping profiles, and rule constraints.
 
@@ -82,7 +82,7 @@ Step 1 is required before any import — it returns the store list, available sh
 
 [Accio.com](https://www.accio.com/) is Alibaba's AI sourcing platform. Users browse products there and copy the URL from their browser.
 
-`dsers.product.import` accepts Accio URLs directly — no pre-processing needed. The tool extracts `productId` and `ds` (data source) from the URL query parameters and resolves the underlying AliExpress or Alibaba product automatically.
+`dsers_product_import` accepts Accio URLs directly — no pre-processing needed. The tool extracts `productId` and `ds` (data source) from the URL query parameters and resolves the underlying AliExpress or Alibaba product automatically.
 
 Supported Accio URL patterns:
 - `accio.com/c/{cid}?productId=xxx&ds=aliexpress.com` — conversation / staging page
@@ -93,7 +93,7 @@ When `ds` contains `aliexpress` → AliExpress import. When `ds` contains `aliba
 
 ### Single vs Batch
 
-- User gives **one URL** → use `source_url` in `dsers.product.import`
+- User gives **one URL** → use `source_url` in `dsers_product_import`
 - User gives **multiple URLs** → use `source_urls_json` (JSON array string). Each URL is processed independently; failures don't block others.
 - Mixed sources (AliExpress + Alibaba + Accio) work in the same batch call.
 
@@ -112,13 +112,13 @@ The system auto-discovers delivery profiles for Shopify stores. No manual GIDs n
 
 - Default behavior: picks the profile marked as default in DSers
 - To use a specific profile: set `push_options.shipping_profile_name` (e.g. `"DSers Shipping Profile"`)
-- `dsers.store.discover` returns `shipping_profiles` per Shopify store — show these to the user if they ask
+- `dsers_store_discover` returns `shipping_profiles` per Shopify store — show these to the user if they ask
 
 Non-Shopify stores skip shipping profile entirely.
 
 ### Rules
 
-Rules are applied at `dsers.product.import` time and frozen into the job. They do NOT change at push time.
+Rules are applied at `dsers_product_import` time and frozen into the job. They do NOT change at push time.
 
 - **pricing**: `mode` (provider_default, multiplier, fixed_markup), `multiplier`, `fixed_markup`, `round_digits`
 - **content**: `title_prefix`, `title_suffix`, `title_override`, `description_override_html`, `description_append_html`, `tags_add`
@@ -130,11 +130,11 @@ Map natural language to rules:
 - "add HOT before title" → `{"content": {"title_prefix": "HOT - "}}`
 - "keep first 5 images" → `{"images": {"keep_first_n": 5}}`
 
-Use `dsers.rules.validate` to check rules before importing — it returns `effective_rules_snapshot` (what will be applied) and `errors` (blocking issues).
+Use `dsers_rules_validate` to check rules before importing — it returns `effective_rules_snapshot` (what will be applied) and `errors` (blocking issues).
 
 ### Pre-Push Safety Checks
 
-`dsers.store.push` automatically validates pricing and stock before sending to the store.
+`dsers_store_push` automatically validates pricing and stock before sending to the store.
 
 **Hard blocks (push is refused):**
 - Sell price < supplier cost → selling at a loss
@@ -147,7 +147,7 @@ Use `dsers.rules.validate` to check rules before importing — it returns `effec
 - Min sell price < $1 → suspiciously low
 
 **When blocked:** Show the user the EXACT figures from the error (e.g., "Variant Green costs $27.18 but is priced at $12.00 — a $15.18 loss per unit"). Then either:
-1. Fix pricing by calling `dsers.product.import` with the same `job_id` + updated `rules_json` (re-apply mode, no `source_url` needed), or
+1. Fix pricing by calling `dsers_product_import` with the same `job_id` + updated `rules_json` (re-apply mode, no `source_url` needed), or
 2. If the user explicitly confirms they accept the risk, retry with `force_push=true`
 
 **NEVER set `force_push=true` silently.** Always explain the risk first.
@@ -170,14 +170,14 @@ Map user intent to `push_options` (passed as `push_options_json` — a JSON stri
 
 ## Return Fields
 
-### dsers.store.discover
+### dsers_store_discover
 
 - `stores`: array of `{store_ref, display_name, platform, domain, shipping_profiles}`
 - `rule_families`: `{pricing, content, images, visibility}` with supported keys per family
 - `push_options`: supported keys, valid values for enums, available sales channels
 - `source_support`: array of supported platforms (aliexpress, alibaba, accio)
 
-### dsers.product.import / dsers.product.preview
+### dsers_product_import / dsers_product_preview
 
 - `job_id`: unique identifier for this import job — needed for all subsequent operations
 - `status`: `preview_ready`
@@ -192,7 +192,7 @@ Map user intent to `push_options` (passed as `push_options_json` — a JSON stri
 - `requested_rules` / `effective_rules_snapshot`: rules as requested vs actually applied
 - `warnings`: array of messages — always surface these to the user
 
-### dsers.store.push
+### dsers_store_push
 
 - `job_id`, `status`: job state after push
 - `target_store`: resolved store name
@@ -201,7 +201,7 @@ Map user intent to `push_options` (passed as `push_options_json` — a JSON stri
 - `job_summary`: `{title, image_count, variant_count}`
 - `warnings`: array — always surface to user
 
-### dsers.job.status
+### dsers_job_status
 
 - `status`: `preview_ready` → `push_requested` → `completed` or `failed`
 - `has_push_result`: boolean — true after push has been attempted
@@ -221,8 +221,8 @@ Common error patterns and recommended actions:
 | Store authorization expired | User must re-authorize the store in DSers Settings |
 | Product not importable | Product may be delisted or off-shelf — verify URL in browser or try a different product |
 | DSers API timed out | Wait 30-60s and retry; products with 100+ variants may time out |
-| Job session expired | Re-call dsers.product.import with the same URL |
-| Store not found | Call dsers.store.discover to list valid store names |
+| Job session expired | Re-call dsers_product_import with the same URL |
+| Store not found | Call dsers_store_discover to list valid store names |
 | Accio URL could not be parsed | Accio URL must contain productId param — e.g. accio.com/c/...?productId=xxx&ds=aliexpress.com |
 | Invalid product URL | URL must be aliexpress.com/item/NUMBERS.html, alibaba.com/product-detail/xxx.html, or a valid Accio product link |
 | Push blocked by safety check | Show user the exact risk; fix pricing rules or get explicit user confirmation before using force_push=true |
@@ -230,9 +230,9 @@ Common error patterns and recommended actions:
 Never expose raw API error bodies to the user. Summarize using the structured error fields above.
 
 - **Import fails**: check URL format. AliExpress bundle URLs are not supported. Alibaba requires the DSers account to have that source enabled. 1688 URLs are recognized but require DSers account authorization for this source.
-- **"shipping profile not found"**: should not happen (auto-discovered). If it does, call `dsers.store.discover` to check available profiles, then retry with explicit `shipping_profile_name` in push_options.
+- **"shipping profile not found"**: should not happen (auto-discovered). If it does, call `dsers_store_discover` to check available profiles, then retry with explicit `shipping_profile_name` in push_options.
 - **Push returns `failed`**: check `warnings` array for details. Common cause: product was deleted from import list between prepare and push.
-- **Unknown target_store**: the error message lists available stores. Use store_ref or display_name from dsers.store.discover.
+- **Unknown target_store**: the error message lists available stores. Use store_ref or display_name from dsers_store_discover.
 - Always surface `warnings` from every response to the user.
 - A job must be `preview_ready` before it can be pushed.
 - Complex JSON parameters (`rules_json`, `push_options_json`, `source_urls_json`, `job_ids_json`, `target_stores_json`) must be valid JSON strings.
@@ -241,20 +241,20 @@ Never expose raw API error bodies to the user. Summarize using the structured er
 
 **Quick import + push:**
 ```
-dsers.store.discover → dsers.product.import(source_url, rules_json) → dsers.store.push(job_id, target_store)
+dsers_store_discover → dsers_product_import(source_url, rules_json) → dsers_store_push(job_id, target_store)
 ```
 
 **Batch with mixed sources:**
 ```
-dsers.store.discover → dsers.product.import(source_urls_json: '["ae_url", "alibaba_url"]') → dsers.store.push(job_ids_json: '["job1", "job2"]', target_store)
+dsers_store_discover → dsers_product_import(source_urls_json: '["ae_url", "alibaba_url"]') → dsers_store_push(job_ids_json: '["job1", "job2"]', target_store)
 ```
 
 **Preview before push:**
 ```
-dsers.store.discover → dsers.product.import(...) → show draft to user → user confirms → dsers.store.push(...)
+dsers_store_discover → dsers_product_import(...) → show draft to user → user confirms → dsers_store_push(...)
 ```
 
 **Validate rules first:**
 ```
-dsers.store.discover → dsers.rules.validate(rules: '{"pricing": {"mode": "multiplier", "multiplier": 2.5}}') → check errors → dsers.product.import(source_url, rules_json: same rules)
+dsers_store_discover → dsers_rules_validate(rules: '{"pricing": {"mode": "multiplier", "multiplier": 2.5}}') → check errors → dsers_product_import(source_url, rules_json: same rules)
 ```

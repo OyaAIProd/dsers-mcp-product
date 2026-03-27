@@ -49,58 +49,58 @@
   },
   "tools": [
     {
-      "name": "dsers.store.discover",
+      "name": "dsers_store_discover",
       "description": "Retrieve connected stores, shipping methods, pricing rules, and push options"
     },
     {
-      "name": "dsers.rules.validate",
+      "name": "dsers_rules_validate",
       "description": "Test pricing or title rules before applying — catches mistakes early"
     },
     {
-      "name": "dsers.product.import",
+      "name": "dsers_product_import",
       "description": "Import a product from AliExpress/Alibaba/Accio URL with optional pricing rules"
     },
     {
-      "name": "dsers.product.preview",
+      "name": "dsers_product_preview",
       "description": "Review an imported product — title, price, variants, stock at a glance"
     },
     {
-      "name": "dsers.product.visibility",
+      "name": "dsers_product_visibility",
       "description": "Set whether a product shows up in your store or stays as a hidden draft"
     },
     {
-      "name": "dsers.store.push",
+      "name": "dsers_store_push",
       "description": "Push products to Shopify or Wix — single, bulk, or all stores at once"
     },
     {
-      "name": "dsers.job.status",
+      "name": "dsers_job_status",
       "description": "Check if a push finished and whether it succeeded"
     }
   ],
   "prompts": [
     {
-      "name": "dsers.workflow.quick-import",
+      "name": "dsers_workflow_quick-import",
       "description": "Import a single product and push to store as draft",
       "arguments": ["product_url", "store_name"],
-      "text": "Import this product and push it to ${arguments.store_name} as a draft:\n${arguments.product_url}\n\nSteps: 1) dsers.store.discover. 2) dsers.product.import. 3) Show preview. 4) dsers.store.push with visibility_mode=backend_only."
+      "text": "Import this product and push it to ${arguments.store_name} as a draft:\n${arguments.product_url}\n\nSteps: 1) dsers_store_discover. 2) dsers_product_import. 3) Show preview. 4) dsers_store_push with visibility_mode=backend_only."
     },
     {
-      "name": "dsers.workflow.bulk-import",
+      "name": "dsers_workflow_bulk-import",
       "description": "Batch import multiple products with pricing multiplier",
       "arguments": ["product_urls", "price_multiplier", "store_name"],
-      "text": "Bulk import these products with a ${arguments.price_multiplier}x price markup and push to ${arguments.store_name}:\n${arguments.product_urls}\n\nSteps: 1) dsers.store.discover. 2) dsers.product.import with rules. 3) Show previews. 4) dsers.store.push for each."
+      "text": "Bulk import these products with a ${arguments.price_multiplier}x price markup and push to ${arguments.store_name}:\n${arguments.product_urls}\n\nSteps: 1) dsers_store_discover. 2) dsers_product_import with rules. 3) Show previews. 4) dsers_store_push for each."
     },
     {
-      "name": "dsers.workflow.multi-push",
+      "name": "dsers_workflow_multi-push",
       "description": "Push one product to all connected stores",
       "arguments": ["product_url"],
-      "text": "Import this product and push it to ALL my stores:\n${arguments.product_url}\n\nSteps: 1) dsers.store.discover — list all stores. 2) dsers.product.import. 3) dsers.store.push with all stores."
+      "text": "Import this product and push it to ALL my stores:\n${arguments.product_url}\n\nSteps: 1) dsers_store_discover — list all stores. 2) dsers_product_import. 3) dsers_store_push with all stores."
     },
     {
-      "name": "dsers.workflow.seo-optimize",
+      "name": "dsers_workflow_seo-optimize",
       "description": "Import, AI-rewrite title & description for SEO, then push",
       "arguments": ["product_url", "store_name", "target_audience"],
-      "text": "Import this product and optimize for SEO before pushing to ${arguments.store_name}:\n${arguments.product_url}\nTarget audience: ${arguments.target_audience}\n\nWorkflow: 1) dsers.store.discover. 2) dsers.product.import — get raw preview. 3) Rewrite title and description for SEO. 4) Re-import with rules. 5) Show preview for approval. 6) dsers.store.push."
+      "text": "Import this product and optimize for SEO before pushing to ${arguments.store_name}:\n${arguments.product_url}\nTarget audience: ${arguments.target_audience}\n\nWorkflow: 1) dsers_store_discover. 2) dsers_product_import — get raw preview. 3) Rewrite title and description for SEO. 4) Re-import with rules. 5) Show preview for approval. 6) dsers_store_push."
     }
   ]
 }
