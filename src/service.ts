@@ -649,12 +649,17 @@ export class ImportFlowService {
       throw Object.assign(new Error(JSON.stringify(structured)), { _structured: structured });
     }
 
-    const pricingConflictWarnings = await this.detectPricingRuleConflict(
+    const pricingCheck = await this.detectPricingRuleConflict(
       job,
       providerCaps.stores,
       targetStore,
       effectivePushOptions,
     );
+    if (pricingCheck.blocked) {
+      throw Object.assign(new Error(JSON.stringify(pricingCheck.blocked)), {
+        _structured: pricingCheck.blocked,
+      });
+    }
 
     const result = await this.provider.commitCandidate(
       job.provider_state,
@@ -681,7 +686,7 @@ export class ImportFlowService {
     this.store.save(jobId, job);
 
     const allWarnings = [
-      ...pricingConflictWarnings,
+      ...(pricingCheck.warnings ?? []),
       ...(safety.warnings ?? []),
       ...(pushOptionCheck.warnings ?? []),
       ...(result.warnings ?? []),
@@ -834,32 +839,48 @@ export class ImportFlowService {
     stores: Record<string, any>[],
     targetStore: string | null,
     pushOptions: Record<string, any>,
-  ): Promise<string[]> {
+  ): Promise<{ blocked: Record<string, any> | null; warnings: string[] }> {
+    const NONE = { blocked: null, warnings: [] as string[] };
     const jobRules = job.effective_rules_snapshot ?? job.rules ?? {};
-    if (!jobRules.pricing) return [];
+    if (!jobRules.pricing) return NONE;
     const behavior = String(pushOptions.pricing_rule_behavior ?? "keep_manual");
-    if (behavior === "apply_store_pricing_rule") return [];
+    if (behavior === "apply_store_pricing_rule") return NONE;
     const storeRef = this.resolveStoreRef(stores, targetStore);
-    if (!storeRef) return [];
+    if (!storeRef) return NONE;
     const storePricing = await this.provider.getStorePricingRule(storeRef);
     if (storePricing._error) {
-      return [
-        `Could not verify DSers store pricing rule status (${storePricing._error}). ` +
-        `If the store has a pricing rule enabled, it may override your MCP pricing. ` +
-        `Check DSers Settings > Pricing Rule, or set push_options pricing_rule_behavior='apply_store_pricing_rule'.`,
-      ];
+      return {
+        blocked: null,
+        warnings: [
+          `Could not verify DSers store pricing rule status (${storePricing._error}). ` +
+          `If the store has a pricing rule enabled, it may override your MCP pricing. ` +
+          `Check DSers Settings > Pricing Rule, or set push_options pricing_rule_behavior='apply_store_pricing_rule'.`,
+        ],
+      };
     }
-    if (!storePricing.enabled) return [];
-    const detail = storePricing.multiplier
-      ? ` (${storePricing.multiplier}x multiplier)`
-      : storePricing.fixed_amount != null
-        ? ` (+${storePricing.fixed_amount} fixed markup)`
-        : "";
-    return [
-      `DSers store pricing rule is enabled${detail} and will override your MCP pricing rules during push. ` +
-      `To use MCP pricing, disable the DSers Pricing Rule in store settings. ` +
-      `To use the DSers rule instead, set push_options pricing_rule_behavior='apply_store_pricing_rule'.`,
-    ];
+    if (!storePricing.enabled) return NONE;
+    const typeSummary = describePricingRule(storePricing);
+    return {
+      blocked: {
+        error: "push_blocked_by_pricing_rule_conflict",
+        blocked: [
+          `DSers store pricing rule is active${typeSummary} and will override your MCP pricing rules during push. ` +
+          `You must resolve this conflict before pushing.`,
+        ],
+        fix_options: [
+          {
+            action: "dsers_store_push",
+            params: { job_id: job.job_id, push_options_json: JSON.stringify({ pricing_rule_behavior: "apply_store_pricing_rule" }) },
+            description: "Accept DSers store pricing rule and push (MCP pricing will be ignored)",
+          },
+          {
+            action: "manual",
+            description: "Disable DSers Pricing Rule in DSers Settings > Pricing Rule for this store, then retry push to use MCP pricing",
+          },
+        ],
+      },
+      warnings: [],
+    };
   }
 
   private resolveStoreRef(
@@ -1092,4 +1113,22 @@ export class ImportFlowService {
 
     return preview;
   }
+}
+
+function describePricingRule(pr: Record<string, any>): string {
+  const type = pr.type ?? "unknown";
+  if (type === "basic") {
+    if (pr.multiplier) return ` (basic, ${pr.multiplier}x multiplier)`;
+    if (pr.fixed_amount != null) return ` (basic, +${pr.fixed_amount} fixed markup)`;
+    return " (basic)";
+  }
+  if (type === "standard") {
+    const tiers = pr.tier_count ?? 0;
+    return tiers > 0 ? ` (standard, ${tiers} tiers)` : " (standard)";
+  }
+  if (type === "advanced") {
+    const sub = pr.advanced_mode ?? "";
+    return sub ? ` (advanced ${sub})` : " (advanced)";
+  }
+  return "";
 }

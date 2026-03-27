@@ -9,7 +9,7 @@ import { registerTools } from "./tools.js";
 import { SERVER_INSTRUCTIONS } from "./instructions.js";
 import { resolve, dirname } from "node:path";
 import { homedir } from "node:os";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -147,6 +147,17 @@ async function startServer() {
   } else {
     dsersConfig = configFromEnv();
   }
+
+  let lastTokenMtime = 0;
+  try { lastTokenMtime = statSync(tokenFilePath()).mtimeMs; } catch { /* no token file yet */ }
+  dsersConfig.tokenReloader = () => {
+    try {
+      const mtime = statSync(tokenFilePath()).mtimeMs;
+      if (mtime === lastTokenMtime) return null;
+      lastTokenMtime = mtime;
+      return loadToken();
+    } catch { return null; }
+  };
 
   if (!dsersConfig.email && !dsersConfig.password && !dsersConfig.sessionId) {
     process.stderr.write(

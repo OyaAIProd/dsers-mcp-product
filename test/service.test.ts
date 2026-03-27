@@ -498,18 +498,25 @@ describe("ImportFlowService", () => {
   });
 
   describe("pricing rule conflict detection", () => {
-    it("warns when MCP pricing and DSers pricing rule both active", async () => {
-      (provider.getStorePricingRule as any).mockResolvedValueOnce({ enabled: true, multiplier: 2 });
+    it("blocks push when MCP pricing and DSers pricing rule both active", async () => {
+      (provider.getStorePricingRule as any).mockResolvedValueOnce({ enabled: true, type: "basic", multiplier: 2 });
       const importResult = await service.prepareImportCandidate({
         source_url: "https://www.aliexpress.com/item/1234567890.html",
         rules: { pricing: { mode: "multiplier", multiplier: 3 } },
       });
-      const pushResult = await service.confirmPushToStore({ job_id: importResult.job_id });
-      expect(pushResult.warnings).toBeDefined();
-      expect(pushResult.warnings.some((w: string) => w.includes("DSers store pricing rule"))).toBe(true);
+      try {
+        await service.confirmPushToStore({ job_id: importResult.job_id });
+        throw new Error("should have thrown");
+      } catch (err: any) {
+        const structured = err._structured;
+        expect(structured).toBeDefined();
+        expect(structured.error).toBe("push_blocked_by_pricing_rule_conflict");
+        expect(structured.blocked[0]).toContain("DSers store pricing rule");
+        expect(structured.fix_options.length).toBe(2);
+      }
     });
 
-    it("no warning when DSers pricing rule is disabled", async () => {
+    it("no block when DSers pricing rule is disabled", async () => {
       (provider.getStorePricingRule as any).mockResolvedValueOnce({ enabled: false });
       const importResult = await service.prepareImportCandidate({
         source_url: "https://www.aliexpress.com/item/1234567890.html",
@@ -520,7 +527,7 @@ describe("ImportFlowService", () => {
       expect(hasConflict).toBe(false);
     });
 
-    it("no warning when no MCP pricing rules", async () => {
+    it("no block when no MCP pricing rules", async () => {
       const importResult = await service.prepareImportCandidate({
         source_url: "https://www.aliexpress.com/item/1234567890.html",
       });
@@ -528,7 +535,7 @@ describe("ImportFlowService", () => {
       expect(provider.getStorePricingRule).not.toHaveBeenCalled();
     });
 
-    it("no warning when pricing_rule_behavior is apply_store_pricing_rule", async () => {
+    it("no block when pricing_rule_behavior is apply_store_pricing_rule", async () => {
       const importResult = await service.prepareImportCandidate({
         source_url: "https://www.aliexpress.com/item/1234567890.html",
         rules: { pricing: { mode: "multiplier", multiplier: 2 } },
@@ -540,7 +547,7 @@ describe("ImportFlowService", () => {
       expect(provider.getStorePricingRule).not.toHaveBeenCalled();
     });
 
-    it("warns when API fails to query pricing rule", async () => {
+    it("warns (not blocks) when API fails to query pricing rule", async () => {
       (provider.getStorePricingRule as any).mockResolvedValueOnce({ enabled: false, _error: "HTTP 403: Forbidden" });
       const importResult = await service.prepareImportCandidate({
         source_url: "https://www.aliexpress.com/item/1234567890.html",
@@ -550,6 +557,21 @@ describe("ImportFlowService", () => {
       expect(pushResult.warnings).toBeDefined();
       expect(pushResult.warnings.some((w: string) => w.includes("Could not verify"))).toBe(true);
       expect(pushResult.warnings.some((w: string) => w.includes("HTTP 403"))).toBe(true);
+    });
+
+    it("block message includes type info for standard pricing rule", async () => {
+      (provider.getStorePricingRule as any).mockResolvedValueOnce({ enabled: true, type: "standard", tier_count: 3 });
+      const importResult = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/1234567890.html",
+        rules: { pricing: { mode: "multiplier", multiplier: 2 } },
+      });
+      try {
+        await service.confirmPushToStore({ job_id: importResult.job_id });
+        throw new Error("should have thrown");
+      } catch (err: any) {
+        expect(err._structured.blocked[0]).toContain("standard");
+        expect(err._structured.blocked[0]).toContain("3 tiers");
+      }
     });
   });
 

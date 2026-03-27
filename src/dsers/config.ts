@@ -18,10 +18,9 @@ export interface DSersConfig {
   email: string;
   password: string;
   sessionFile: string;
-  /** Pre-authenticated session ID from token store or CLI login */
   sessionId?: string;
-  /** Pre-authenticated state value */
   sessionState?: string;
+  tokenReloader?: () => { session_id: string; state: string; base_url: string } | null;
 }
 
 /**

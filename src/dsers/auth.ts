@@ -31,6 +31,16 @@ export class DSersAuth {
       return [this.sessionId, this.state ?? ""];
     }
 
+    if (this.config.tokenReloader) {
+      const fresh = this.config.tokenReloader();
+      if (fresh?.session_id && fresh.session_id !== this.sessionId) {
+        this.sessionId = fresh.session_id;
+        this.state = fresh.state ?? "";
+        this.fetchedAt = Date.now();
+        return [this.sessionId, this.state];
+      }
+    }
+
     const cached = this.readCache();
     if (cached) {
       [this.sessionId, this.state, this.fetchedAt] = cached;

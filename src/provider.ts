@@ -210,10 +210,24 @@ export class PrivateDsersProvider implements ImportProvider {
       const enabled = Boolean(entry.status);
       const result: Record<string, any> = { enabled };
       if (enabled) {
-        const dp = entry.basicPricing?.defaultPricing;
-        if (dp) {
-          if (dp.pattern === "mul" && dp.price) result.multiplier = Number(dp.price);
-          if (dp.pattern === "add" && dp.price) result.fixed_amount = Number(dp.price);
+        const rank = String(entry.pricingRank ?? "");
+        if (rank.includes("Standard")) {
+          result.type = "standard";
+          const items = entry.standardPricing?.standardItem ?? [];
+          if (items.length) result.tier_count = items.length;
+        } else if (rank.includes("Advanced")) {
+          result.type = "advanced";
+          if (entry.advancedPricing?.customFormulaTemplate === "CustomFormulaTemplateOpen")
+            result.advanced_mode = "custom_formula";
+          else
+            result.advanced_mode = "fixed_formula";
+        } else {
+          result.type = "basic";
+          const dp = entry.basicPricing?.defaultPricing;
+          if (dp) {
+            if (dp.pattern === "mul" && dp.price) result.multiplier = Number(dp.price);
+            if (dp.pattern === "add" && dp.price) result.fixed_amount = Number(dp.price);
+          }
         }
         if (entry.basicPricing?.comparedStatus != null)
           result.compare_at_enabled = Boolean(entry.basicPricing.comparedStatus);
