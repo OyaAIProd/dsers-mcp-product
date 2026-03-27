@@ -146,8 +146,9 @@ export function registerTools(
         "Optionally apply rules at import time via rules_json or flat params. " +
         "EXPIRED/LOST JOB_ID: Re-import with source_url — DSers finds the existing draft (no duplicate). " +
         "To UPDATE rules on an existing import, use dsers_product_update_rules instead. " +
-        "RESPONSE: title, sell_price, cost, compare_at_price (dollars), variants_count, skus (array of arrays), " +
-        "images (count), active_rules, warnings. Use dsers_product_preview to paginate variants.",
+        "SINGLE RESPONSE: compact preview with all variants [name, sell, qty], price_summary, active_rules. " +
+        "BATCH RESPONSE: summary mode (default) returns job_id + key metadata per product (~100 tokens each). " +
+        "Use batch_detail='full' for complete previews. Use dsers_product_preview for individual details.",
       inputSchema: {
         source_url: z
           .string()
@@ -223,6 +224,11 @@ export function registerTools(
           .describe("Flat param: prepend to product title."),
         title_suffix: z.string().optional()
           .describe("Flat param: append to product title."),
+        batch_detail: z.enum(["summary", "full"]).optional()
+          .describe(
+            "Batch response detail level. summary (default): job_id + title + sell_price + cost + variants_count + stock per product (~100 tokens each). " +
+              "full: complete preview per product (can be very large for 10+ products). Single imports always return full preview.",
+          ),
       },
       annotations: {
         readOnlyHint: false,
@@ -279,6 +285,7 @@ export function registerTools(
         if (args.country) payload.country = args.country;
         if (args.target_store) payload.target_store = args.target_store;
         payload.visibility_mode = args.visibility_mode || "backend_only";
+        if (args.batch_detail) payload.batch_detail = args.batch_detail;
 
         const flatRules = buildRulesFromFlatParams(args);
         if (args.rules_json) {
@@ -303,36 +310,37 @@ export function registerTools(
     {
       title: "Import Draft Preview",
       description:
-        "Reload preview for an import job. Same response shape as dsers_product_import. " +
-        "Use this to re-read the current draft state or paginate through variants. " +
-        "Key fields: sell_price (store listing price, dollars), cost (supplier price, dollars), " +
-        "compare_at_price (strikethrough price, dollars). " +
-        "Title: returns 'title' if unchanged, or 'title_before' + 'title_after' if content rules modified it. " +
-        "skus: ARRAY OF ARRAYS — first row is header [name, sell, compare_at, cost, qty, supplier_qty], " +
-        "subsequent rows are data. Use variant_offset/variant_limit to paginate. " +
-        "skus_more = remaining variants not shown. " +
-        "options: array of {name, values[]} describing variant dimensions (e.g. Color, Size). " +
-        "Use this to show the user available options before applying option_edits. " +
-        "stock = store inventory, supplier_stock = supplier inventory. " +
-        "ship_to = destination country, ship_from = origin country.",
+        "Reload preview for an import job. " +
+        "Two modes: compact (default) returns [name, sell, qty] for ALL variants — lightweight. " +
+        "full returns [name, sell, compare_at, cost, qty, supplier_qty] for 3 variants by default. " +
+        "Always includes price_summary: {sell:{min,max}, cost:{min,max}, zero_stock_count, low_stock_count, variants_count}. " +
+        "Key fields: sell_price (store listing price, $), cost (supplier price, $), compare_at_price (strikethrough, $). " +
+        "options: array of {name, values[], values_count} — values truncated to 10 by default, set show_all_options=true for full list. " +
+        "active_rules: currently applied rules (always present, {} if none). " +
+        "Use variant_detail='full' when agent needs compare_at or cost columns.",
       inputSchema: {
         job_id: z
           .string()
           .describe("Job ID returned by dsers_product_import."),
+        variant_detail: z
+          .enum(["compact", "full"])
+          .optional()
+          .describe(
+            "compact (default): columns [name, sell, qty], shows ALL variants. " +
+              "full: columns [name, sell, compare_at, cost, qty, supplier_qty], shows 3 by default.",
+          ),
         variant_offset: z
           .number()
           .optional()
-          .describe(
-            "Start index for variant/SKU listing (0-based). Default: 0. " +
-              "Use with variant_limit to paginate through products with many variants.",
-          ),
+          .describe("Start index for variant/SKU listing (0-based). Default: 0."),
         variant_limit: z
           .number()
           .optional()
           .describe(
-            "Max number of variants to return in skus table. Default: 3. " +
-              "Set higher (e.g. 20) to see more variants. skus_more shows how many remain.",
+            "Max variants in skus table. Compact default: all. Full default: 3. Hard cap: 200.",
           ),
+        show_all_options: coerceBool
+          .describe("Show all option values instead of truncating to 10. Use before applying option_edits."),
       },
       annotations: {
         readOnlyHint: true,
@@ -341,12 +349,14 @@ export function registerTools(
         openWorldHint: false,
       },
     },
-    async ({ job_id, variant_offset, variant_limit }) => {
+    async ({ job_id, variant_detail, variant_offset, variant_limit, show_all_options }) => {
       try {
         return ok(await svc().getImportPreview({
           job_id,
+          variant_detail: variant_detail ?? "compact",
           variant_offset: variant_offset ?? 0,
           variant_limit: variant_limit ?? 0,
+          show_all_options: show_all_options ?? false,
         }));
       } catch (err) { return fail(err); }
     },
@@ -358,14 +368,17 @@ export function registerTools(
       title: "Update Rules on Imported Product",
       description:
         "Update pricing, content, images, or variant rules on an already-imported product. " +
-        "Rules are merged incrementally by FAMILY: only families you provide are replaced, " +
-        "others are preserved from the previous call. " +
-        "Example: call with pricing only → pricing set, content preserved. " +
-        "Then call with content only → content set, pricing still preserved. " +
-        "To REMOVE a family, pass it as null (e.g. rules_json='{\"pricing\":null}'). " +
-        "option_edits are always fully replaced (not merged) because they are ordered operations. " +
-        "RESPONSE: same as dsers_product_import — includes active_rules showing all currently applied rules. " +
-        "Use dsers_product_preview to see the current state before updating.",
+        "Rules are merged incrementally: pricing/images/variant_overrides replace by family; " +
+        "content merges by field (set title_prefix without losing description). " +
+        "To clear a content field, send it as empty string or null (e.g. title_prefix:''). " +
+        "To remove an entire family, pass null (e.g. rules_json='{\"pricing\":null}'). " +
+        "option_edits are always fully replaced (ordered operations, not mergeable). " +
+        "OPTION_EDITS actions: " +
+        "rename_option {action,option_name,new_name} — rename e.g. Color→Style. " +
+        "rename_value {action,option_name,value_name,new_name} — rename a value within an option. " +
+        "remove_value {action,option_name,value_name} — remove value and DELETE all variants with that value. " +
+        "remove_option {action,option_name} — remove entire option dimension. " +
+        "RESPONSE: compact preview with active_rules showing all currently applied rules.",
       inputSchema: {
         job_id: z
           .string()
@@ -378,8 +391,13 @@ export function registerTools(
               "PRICING: {mode:'fixed_price',fixed_price:9.99} | {mode:'multiplier',multiplier:2} | {mode:'fixed_markup',fixed_markup:5}. " +
               "VARIANT_OVERRIDES: [{match:'Red',sell_price:9.99,compare_at_price:19.99}]. " +
               "CONTENT: {title_override, title_prefix, title_suffix, description_override_html, tags_add:['tag']}. " +
+              "Content fields merge individually — set title_prefix without losing description. Clear with '' or null. " +
               "IMAGES: {drop_indexes, reorder, add_urls, keep_first_n}. " +
-              "OPTION_EDITS: [{action:'rename_option',option_name:'Color',new_name:'Style'}]. " +
+              "OPTION_EDITS (always full replacement): " +
+              "[{action:'rename_option',option_name:'Color',new_name:'Style'}," +
+              "{action:'rename_value',option_name:'Color',value_name:'Red',new_name:'Crimson'}," +
+              "{action:'remove_value',option_name:'Color',value_name:'Gray'}," +
+              "{action:'remove_option',option_name:'Size'}]. " +
               "Only include families you want to change. Others are preserved automatically.",
           ),
         pricing_mode: z.enum(["multiplier", "fixed_markup", "fixed_price"]).optional()

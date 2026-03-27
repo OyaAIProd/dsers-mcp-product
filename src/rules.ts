@@ -101,7 +101,7 @@ function _normalizePricing(
     normalized.fixed_price = price;
   }
   if (mode !== "provider_default") {
-    const rd = pricing.round_digits ?? 0;
+    const rd = pricing.round_digits ?? 2;
     const roundDigits = Number.isInteger(rd) ? rd : parseInt(String(rd), 10);
     if (Number.isNaN(roundDigits) || roundDigits < 0 || roundDigits > 10) {
       errors.push("pricing.round_digits must be an integer between 0 and 10.");

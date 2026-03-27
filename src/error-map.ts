@@ -51,14 +51,15 @@ const DSERS_REASON_MAP: Record<string, AgentError> = {
       "The server will try to locate the existing draft automatically. If it fails, ask the user to check their DSers import list.",
   },
   ALIBABA_NOT_AVAILABLE: {
-    summary: "Alibaba product not importable (likely MOQ > 1)",
+    summary: "Alibaba product not importable",
     cause:
-      "The Alibaba product exists but DSers cannot import it. " +
-      "The most common reason is the product's Minimum Order Quantity (MOQ) is greater than 1. " +
-      "DSers only supports Alibaba products that allow single-piece ordering (MOQ = 1).",
+      "The Alibaba product cannot be imported. Common causes: " +
+      "(1) MOQ > 1 — DSers requires single-piece ordering; " +
+      "(2) product off-shelf or delisted; " +
+      "(3) product not available in the target country/region.",
     action:
-      "Try a different Alibaba product with MOQ = 1, or find the same product on AliExpress " +
-      "where all products support single-piece ordering.",
+      "Try a different Alibaba product, or find the same product on AliExpress. " +
+      "Tell the user the import failed and suggest they provide an alternative product URL.",
   },
   PUSH_PRODUCT_WAITING: {
     summary: "Push temporarily blocked — DSers is processing",

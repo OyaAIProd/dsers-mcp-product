@@ -373,7 +373,7 @@ describe("ImportFlowService", () => {
       const result = await service.prepareImportCandidate({
         source_url: "https://www.aliexpress.com/item/1234567890.html",
       });
-      expect(result.skus[0]).toEqual(["name", "sell", "compare_at", "cost", "qty", "supplier_qty"]);
+      expect(result.skus[0]).toEqual(["name", "sell", "qty"]);
       expect(result.skus.length).toBeGreaterThan(1);
     });
 
@@ -406,9 +406,9 @@ describe("ImportFlowService", () => {
       const result = await service.prepareImportCandidate({
         source_url: "https://www.aliexpress.com/item/many.html",
       });
-      expect(result.skus[0]).toEqual(["name", "sell", "compare_at", "cost", "qty", "supplier_qty"]);
-      expect(result.skus).toHaveLength(4); // 1 header + 3 data
-      expect(result.skus_more).toBe(17);
+      expect(result.skus[0]).toEqual(["name", "sell", "qty"]);
+      expect(result.skus).toHaveLength(21); // 1 header + 20 data (compact shows all)
+      expect(result.skus_more).toBeUndefined();
       expect(result.variants_count).toBe(20);
     });
 
@@ -483,7 +483,7 @@ describe("ImportFlowService", () => {
         source_url: "https://www.aliexpress.com/item/opts.html",
       });
       expect(result.options).toEqual([
-        { name: "Color", values: ["Red", "Blue"] },
+        { name: "Color", values: ["Red", "Blue"], values_count: 2 },
       ]);
     });
 

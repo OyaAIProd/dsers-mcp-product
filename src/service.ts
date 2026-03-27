@@ -5,12 +5,17 @@ import { normalizePushOptions } from "./push-options.js";
 import { validatePushSafety } from "./push-guard.js";
 import { resolveSourceUrl } from "./resolver.js";
 import { applyRules, normalizeRules } from "./rules.js";
+import { formatErrorForAgent } from "./error-map.js";
 
 const MAX_WARNING_CHARS = 120;
 const MAX_WARNINGS = 8;
 const BATCH_CONCURRENCY = 5;
+const MAX_VARIANT_LIMIT = 200;
+const MAX_OPTION_VALUES = 10;
 
 const DECLARATIVE_RULE_FAMILIES = new Set(["pricing", "content", "images", "variant_overrides"]);
+
+const FIELD_MERGE_FAMILIES = new Set(["content"]);
 
 function mergeRuleFamilies(
   existing: Record<string, any>,
@@ -20,6 +25,18 @@ function mergeRuleFamilies(
   for (const key of Object.keys(incoming)) {
     if (incoming[key] === null || incoming[key] === undefined) {
       delete merged[key];
+    } else if (
+      FIELD_MERGE_FAMILIES.has(key) &&
+      existing[key] &&
+      typeof existing[key] === "object" &&
+      typeof incoming[key] === "object"
+    ) {
+      const fieldMerged = { ...existing[key], ...incoming[key] };
+      for (const fk of Object.keys(fieldMerged)) {
+        if (fieldMerged[fk] === null || fieldMerged[fk] === "") delete fieldMerged[fk];
+      }
+      merged[key] = Object.keys(fieldMerged).length ? fieldMerged : undefined;
+      if (merged[key] === undefined) delete merged[key];
     } else {
       merged[key] = incoming[key];
     }
@@ -253,7 +270,8 @@ export class ImportFlowService {
     if (Array.isArray(sourceUrls)) {
       return this.batchPrepare(payload, sourceUrls);
     }
-    return this.prepareSingle(payload);
+    const result = await this.prepareSingle(payload);
+    return result;
   }
 
   private async prepareSingle(
@@ -351,6 +369,7 @@ export class ImportFlowService {
       );
     }
     const batchId = `batch-${randomUUID().slice(0, 12)}`;
+    const batchDetail = payload.batch_detail === "full" ? "full" : "summary";
     const sharedKeys = [
       "country",
       "target_store",
@@ -383,11 +402,26 @@ export class ImportFlowService {
           continue;
         }
         try {
-          const preview = await this.prepareSingle(itemPayload);
-          results[idx] = { ...preview, index: idx };
+          const fullPreview = await this.prepareSingle(itemPayload);
+          if (batchDetail === "summary") {
+            results[idx] = {
+              job_id: fullPreview.job_id,
+              index: idx,
+              status: fullPreview.status,
+              title: fullPreview.title ?? fullPreview.title_after ?? "",
+              sell_price: fullPreview.sell_price,
+              cost: fullPreview.cost,
+              variants_count: fullPreview.variants_count,
+              images: fullPreview.images,
+              stock: fullPreview.stock,
+              import_item_id: fullPreview.import_item_id,
+            };
+          } else {
+            results[idx] = { ...fullPreview, index: idx };
+          }
           succeeded++;
         } catch (err: any) {
-          results[idx] = { index: idx, source_url: url, error: String(err.message ?? err) };
+          results[idx] = { index: idx, source_url: url, error: formatErrorForAgent(err) };
           failed++;
         }
       }
@@ -413,7 +447,9 @@ export class ImportFlowService {
     }
     const variantOffset = Number(payload.variant_offset ?? 0) || 0;
     const variantLimit = Number(payload.variant_limit ?? 0) || 0;
-    return this.preview(job, variantOffset, variantLimit);
+    const variantDetail = payload.variant_detail === "full" ? "full" as const : "compact" as const;
+    const showAllOptions = Boolean(payload.show_all_options);
+    return this.preview(job, variantOffset, variantLimit, variantDetail, showAllOptions);
   }
 
   async reapplyRules(
@@ -658,7 +694,7 @@ export class ImportFlowService {
         results.push({ ...result, target_store: storeName });
         succeeded++;
       } catch (err: any) {
-        results.push({ job_id: jobId, target_store: storeName, error: String(err.message ?? err) });
+        results.push({ job_id: jobId, target_store: storeName, error: formatErrorForAgent(err) });
         failed++;
       }
     }
@@ -702,7 +738,7 @@ export class ImportFlowService {
         results.push({
           job_id: task.job_id ?? "",
           target_store: task.target_store ?? "",
-          error: String(err.message ?? err),
+          error: formatErrorForAgent(err),
         });
         failed++;
       }
@@ -824,14 +860,19 @@ export class ImportFlowService {
     job: Record<string, any>,
     variantOffset = 0,
     variantLimit = 0,
+    variantDetail: "compact" | "full" = "compact",
+    showAllOptions = false,
   ): Record<string, any> {
     const original = job.original_draft;
     const final = job.draft;
-    const DEFAULT_MAX = 3;
-    const maxVariants = variantLimit > 0 ? variantLimit : DEFAULT_MAX;
+    const variants = final?.variants ?? [];
+    const defaultMax = variantDetail === "compact" ? variants.length || 3 : 3;
+    const maxVariants = Math.min(
+      variantLimit > 0 ? variantLimit : defaultMax,
+      MAX_VARIANT_LIMIT,
+    );
     const offset = Math.max(0, variantOffset);
 
-    const variants = final?.variants ?? [];
     const preview: Record<string, any> = {
       job_id: job.job_id,
       status: job.status,
@@ -885,38 +926,73 @@ export class ImportFlowService {
 
     if (variants.length) {
       const sliced = variants.slice(offset, offset + maxVariants);
-      preview.skus = [
-        ["name", "sell", "compare_at", "cost", "qty", "supplier_qty"],
-        ...sliced.map((v: any) => [
-          v.title,
-          v.offer_price != null ? centsToDollars(Number(v.offer_price)) : null,
-          v.compare_at_price != null ? centsToDollars(Number(v.compare_at_price)) : null,
-          v.supplier_price != null ? centsToDollars(Number(v.supplier_price)) : null,
-          v.stock ?? null,
-          v.supplier_stock ?? null,
-        ]),
-      ];
+      if (variantDetail === "compact") {
+        preview.skus = [
+          ["name", "sell", "qty"],
+          ...sliced.map((v: any) => [
+            v.title,
+            v.offer_price != null ? centsToDollars(Number(v.offer_price)) : null,
+            v.stock ?? null,
+          ]),
+        ];
+      } else {
+        preview.skus = [
+          ["name", "sell", "compare_at", "cost", "qty", "supplier_qty"],
+          ...sliced.map((v: any) => [
+            v.title,
+            v.offer_price != null ? centsToDollars(Number(v.offer_price)) : null,
+            v.compare_at_price != null ? centsToDollars(Number(v.compare_at_price)) : null,
+            v.supplier_price != null ? centsToDollars(Number(v.supplier_price)) : null,
+            v.stock ?? null,
+            v.supplier_stock ?? null,
+          ]),
+        ];
+      }
       const remaining = variants.length - offset - sliced.length;
       if (remaining > 0) preview.skus_more = remaining;
       if (offset > 0) preview.skus_offset = offset;
+
+      const sells: number[] = [];
+      const costs: number[] = [];
+      let zeroStock = 0;
+      let lowStock = 0;
+      for (const v of variants) {
+        if (v.offer_price != null) sells.push(centsToDollars(Number(v.offer_price)));
+        if (v.supplier_price != null) costs.push(centsToDollars(Number(v.supplier_price)));
+        const st = v.stock ?? 0;
+        if (st === 0) zeroStock++;
+        else if (st > 0 && st < 5) lowStock++;
+      }
+      preview.price_summary = {
+        sell: sells.length ? { min: Math.min(...sells), max: Math.max(...sells) } : null,
+        cost: costs.length ? { min: Math.min(...costs), max: Math.max(...costs) } : null,
+        zero_stock_count: zeroStock,
+        low_stock_count: lowStock,
+        variants_count: variants.length,
+      };
     }
 
     if (job.target_store) preview.store = job.target_store;
     const options: Record<string, any>[] = final?.options ?? [];
     if (options.length) {
-      preview.options = options.map((o: any) => ({
-        name: o.name,
-        values: (o.values ?? []).map((v: any) => v.name),
-      }));
+      const maxVals = showAllOptions ? Infinity : MAX_OPTION_VALUES;
+      preview.options = options.map((o: any) => {
+        const allValues: string[] = (o.values ?? []).map((v: any) => v.name);
+        const entry: Record<string, any> = {
+          name: o.name,
+          values: allValues.slice(0, maxVals),
+          values_count: allValues.length,
+        };
+        if (allValues.length > maxVals) entry.values_truncated = true;
+        return entry;
+      });
     }
 
     if (job.visibility_mode && job.visibility_mode !== "backend_only")
       preview.visibility = job.visibility_mode;
 
     const activeRules = job.effective_rules_snapshot ?? job.rules;
-    if (activeRules && Object.keys(activeRules).length) {
-      preview.active_rules = activeRules;
-    }
+    preview.active_rules = (activeRules && Object.keys(activeRules).length) ? activeRules : {};
 
     const importItemId = job.provider_state?.import_item_id;
     if (importItemId) preview.import_item_id = importItemId;

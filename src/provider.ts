@@ -239,10 +239,12 @@ export class PrivateDsersProvider implements ImportProvider {
     );
     if (this.hasReason(importPayload, "ALIBABA_NOT_AVAILABLE")) {
       throw new Error(
-        "The Alibaba/1688 product cannot be imported. Most likely cause: the product's " +
-        "Minimum Order Quantity (MOQ) is greater than 1. DSers only supports Alibaba " +
-        "products with MOQ = 1. Try a different product with single-piece ordering, " +
-        "or find the same product on AliExpress instead.",
+        "Cannot import this Alibaba product. Common causes: " +
+        "(1) MOQ > 1 — DSers requires single-piece ordering; " +
+        "(2) product off-shelf or delisted; " +
+        "(3) product not available in target country. " +
+        "RECOVERY: Try a different Alibaba product, or find the same product on AliExpress. " +
+        "USER_HINT: Tell the user the import failed and suggest trying an alternative product URL.",
       );
     }
     if (this.hasReason(importPayload, "PRODUCT_STATUS_NOT_ONSELLING")) {
