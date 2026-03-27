@@ -82,8 +82,9 @@ export function registerTools(
         "Returns: effective_rules_snapshot (what will actually be applied), warnings (adjustments made), errors (blocking issues that must be fixed before calling dsers.product.import).",
       inputSchema: {
         rules: z.string().describe(
-          "Rules as a JSON string. Top-level keys: pricing, content, images. " +
-            'Example: {"pricing": {"mode": "multiplier", "multiplier": 2.5}, ' +
+          "Rules as a JSON string. Top-level keys: pricing, content, images, variant_overrides, option_edits. " +
+            "Pricing modes: fixed_price (exact dollar amount for all), multiplier (cost × ratio), fixed_markup (cost + dollars). " +
+            'Example: {"pricing": {"mode": "fixed_price", "fixed_price": 9.99}, ' +
             '"content": {"title_prefix": "[US] "}, "images": {"keep_first_n": 5}}',
         ),
         target_store: z
@@ -237,21 +238,27 @@ export function registerTools(
           .optional()
           .describe(
             "Optional rules as JSON string applied to all items. " +
-              "Keys: pricing ({mode, multiplier, fixed_markup, round_digits}), " +
-              "content ({title_override, title_prefix, title_suffix, description_override_html, description_append_html, tags_add:[\"tag1\",\"tag2\"]}), " +
-              "images ({keep_first_n, drop_indexes, add_urls, reorder}) — " +
-              "add_urls: array of public http/https URLs to add. reorder: array of indexes for new order. " +
-              "WARNING: image deletion via drop_indexes is IRREVERSIBLE once pushed; confirm with user before removing images, " +
-              "variant_overrides (array of per-variant patches), " +
-              "option_edits (array of option edit actions — see OPTION EDITING section above). " +
-              "fixed_markup is in dollars (e.g. 5.00 = add $5 to cost). multiplier is a ratio (e.g. 2.0 = 2x cost). " +
-              "VARIANT_OVERRIDES: Each entry has 'match' (substring to match variant title or SKU) and optional " +
-              "sell_price (dollars), compare_at_price (dollars), stock (integer), title (string), image_url (string). " +
-              "Applied AFTER global pricing, so overrides take priority. " +
+              "Top-level keys: pricing, content, images, variant_overrides, option_edits. " +
+              "PRICING — choose the right mode based on user intent: " +
+              "| User says | Mode | Example | " +
+              "| 'set price to $9.99' / 'all $9.99' | fixed_price | {\"mode\":\"fixed_price\",\"fixed_price\":9.99} | " +
+              "| 'double the price' / '3x markup' | multiplier | {\"mode\":\"multiplier\",\"multiplier\":2.0} | " +
+              "| 'add $5 to cost' / '$5 markup' | fixed_markup | {\"mode\":\"fixed_markup\",\"fixed_markup\":5.00} | " +
+              "| 'Red $9.99, Blue $12.99' (different per variant) | Use variant_overrides instead | (see below) | " +
+              "fixed_price: sets ALL variants to exact dollar amount (ignores cost). " +
+              "multiplier: sell = cost × multiplier. fixed_markup: sell = cost + markup (dollars). " +
+              "All modes accept optional round_digits (int 0-10). " +
+              "VARIANT_OVERRIDES — per-variant patches, applied AFTER global pricing (overrides take priority): " +
+              "Array of {match (substring of variant title/SKU), sell_price (dollars), compare_at_price (dollars), stock (integer), title (string), image_url (string)}. " +
+              "Example: [{\"match\":\"Red\",\"sell_price\":9.99,\"compare_at_price\":19.99},{\"match\":\"Blue\",\"sell_price\":12.99}]. " +
+              "CONTENT: {title_override, title_prefix, title_suffix, description_override_html, description_append_html, tags_add:[\"tag\"]}. " +
+              "IMAGES: Pipeline: drop_indexes → reorder → add_urls → keep_first_n. " +
+              "add_urls: array of public http/https URLs. WARNING: drop_indexes is IRREVERSIBLE once pushed; confirm with user. " +
               "OPTION_EDITS: Array of {action, option_name, value_name?, new_name?}. " +
               "Actions: rename_option, rename_value, remove_value (DESTRUCTIVE — deletes variants!), remove_option. " +
-              'Example: {"pricing":{"mode":"multiplier","multiplier":2.5},' +
-              '"option_edits":[{"action":"remove_value","option_name":"Color","value_name":"Pig"}]}',
+              'Example: {"pricing":{"mode":"fixed_price","fixed_price":9.99},' +
+              '"content":{"title_override":"My Product"},' +
+              '"variant_overrides":[{"match":"Premium","sell_price":14.99}]}',
           ),
       },
       annotations: {

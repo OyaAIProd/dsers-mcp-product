@@ -140,7 +140,7 @@ export class PrivateDsersProvider implements ImportProvider {
       rule_families: {
         pricing: {
           supported: true,
-          modes: ["provider_default", "multiplier", "fixed_markup"],
+          modes: ["provider_default", "multiplier", "fixed_markup", "fixed_price"],
           native_snapshot_available: true,
         },
         content: {

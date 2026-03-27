@@ -1,5 +1,5 @@
 const KNOWN_TOP_LEVEL_RULE_KEYS = new Set(["pricing", "content", "images", "variant_overrides", "option_edits", "instruction_text"]);
-const KNOWN_PRICING_KEYS = new Set(["mode", "multiplier", "fixed_markup", "round_digits"]);
+const KNOWN_PRICING_KEYS = new Set(["mode", "multiplier", "fixed_markup", "fixed_price", "round_digits"]);
 const KNOWN_CONTENT_KEYS = new Set([
   "title_override",
   "title_prefix",
@@ -9,7 +9,7 @@ const KNOWN_CONTENT_KEYS = new Set([
   "tags_add",
 ]);
 const KNOWN_IMAGE_KEYS = new Set(["keep_first_n", "drop_indexes", "add_urls", "reorder", "translate_image_text", "remove_logo"]);
-const DEFAULT_PRICING_MODES = new Set(["provider_default", "multiplier", "fixed_markup"]);
+const DEFAULT_PRICING_MODES = new Set(["provider_default", "multiplier", "fixed_markup", "fixed_price"]);
 
 function _allowedRuleKeys(capability: Record<string, any> | undefined, defaultKeys: Set<string>): Set<string> {
   const cap = capability ?? {};
@@ -85,6 +85,17 @@ function _normalizePricing(
       return {};
     }
     normalized.fixed_markup = markup;
+  } else if (mode === "fixed_price") {
+    const price = _asFloat(pricing.fixed_price, null);
+    if (price == null) {
+      errors.push("pricing.fixed_price must be a number (in dollars) when pricing.mode='fixed_price'.");
+      return {};
+    }
+    if (price < 0) {
+      errors.push("pricing.fixed_price must be >= 0.");
+      return {};
+    }
+    normalized.fixed_price = price;
   }
   if (mode !== "provider_default") {
     const rd = pricing.round_digits ?? 0;
@@ -371,19 +382,24 @@ function _applyPricing(draft: Record<string, any>, pricing: Record<string, any>,
   if (mode === "provider_default") return;
   const multiplier = _asFloat(pricing.multiplier, 1) ?? 1;
   const markup = _asFloat(pricing.fixed_markup, 0) ?? 0;
+  const fixedPrice = _asFloat(pricing.fixed_price, 0) ?? 0;
   const roundDigits = pricing.round_digits ?? 0;
   const roundTo = (v: number, d: number) => Math.round(v * 10 ** d) / 10 ** d;
   const variants = draft.variants ?? [];
   let changed = 0;
   for (const v of variants) {
-    const base = _costPrice(v);
-    if (base == null) continue;
     let newPrice: number;
-    if (mode === "multiplier") newPrice = roundTo(base * multiplier, roundDigits);
-    else if (mode === "fixed_markup") newPrice = roundTo(base + markup * 100, roundDigits);
-    else {
-      summary.warnings.push(`Unsupported pricing mode '${mode}' was ignored.`);
-      return;
+    if (mode === "fixed_price") {
+      newPrice = Math.round(fixedPrice * 100);
+    } else {
+      const base = _costPrice(v);
+      if (base == null) continue;
+      if (mode === "multiplier") newPrice = roundTo(base * multiplier, roundDigits);
+      else if (mode === "fixed_markup") newPrice = roundTo(base + markup * 100, roundDigits);
+      else {
+        summary.warnings.push(`Unsupported pricing mode '${mode}' was ignored.`);
+        return;
+      }
     }
     v.offer_price = newPrice;
     changed++;
