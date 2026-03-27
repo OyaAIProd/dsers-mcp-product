@@ -41,7 +41,7 @@ export function registerTools(
   const svc = typeof getService === "function" ? getService : () => getService;
 
   server.registerTool(
-    "dsers.store.discover",
+    "dsers_store_discover",
     {
       title: "DSers Store & Rule Discovery",
       description:
@@ -73,13 +73,13 @@ export function registerTools(
   );
 
   server.registerTool(
-    "dsers.rules.validate",
+    "dsers_rules_validate",
     {
       title: "Dropshipping Pricing & Content Rule Validator",
       description:
         "Check and normalize a rules object against the provider's capabilities before importing. " +
         "Use this to verify pricing, content, and image rules are valid and see exactly which ones will be applied. " +
-        "Returns: effective_rules_snapshot (what will actually be applied), warnings (adjustments made), errors (blocking issues that must be fixed before calling dsers.product.import).",
+        "Returns: effective_rules_snapshot (what will actually be applied), warnings (adjustments made), errors (blocking issues that must be fixed before calling dsers_product_import).",
       inputSchema: {
         rules: z.string().describe(
           "Rules as a JSON string. Top-level keys: pricing, content, images, variant_overrides, option_edits. " +
@@ -91,7 +91,7 @@ export function registerTools(
           .string()
           .optional()
           .describe(
-            "Store ID or display name from dsers.store.discover. Some rule capabilities vary by store.",
+            "Store ID or display name from dsers_store_discover. Some rule capabilities vary by store.",
           ),
       },
       annotations: {
@@ -115,7 +115,7 @@ export function registerTools(
   );
 
   server.registerTool(
-    "dsers.product.import",
+    "dsers_product_import",
     {
       title: "AliExpress / Alibaba / Accio Product Import",
       description:
@@ -157,11 +157,11 @@ export function registerTools(
         "- remove_value: {action:'remove_value', option_name:'Color', value_name:'Pig'} — DESTRUCTIVE: permanently removes ALL variants that use this value. Cannot be undone without re-importing the product. " +
         "- remove_option: {action:'remove_option', option_name:'Ships From'} — removes an entire option dimension from all variants (reduces option count but keeps variants). " +
         "AGENT PROTOCOL for remove_value: " +
-        "1) ALWAYS call dsers.product.preview first to show the user the current options and variant count. " +
+        "1) ALWAYS call dsers_product_preview first to show the user the current options and variant count. " +
         "2) Calculate how many variants will be deleted and tell the user explicitly (e.g. 'This will remove 3 of 12 variants permanently'). " +
         "3) Get EXPLICIT user confirmation before proceeding. " +
         "4) After applying, show the updated preview to confirm the result. " +
-        "To see current options, use dsers.product.preview — the response includes an 'options' field with name and values for each option. " +
+        "To see current options, use dsers_product_preview — the response includes an 'options' field with name and values for each option. " +
         "RESPONSE FORMAT: " +
         "- title: product title (string). If content rules changed the title, returns title_before + title_after instead. " +
         "- sell_price: store listing price in dollars (number or {min,max} range). " +
@@ -173,7 +173,7 @@ export function registerTools(
         "- skus: variant table as ARRAY OF ARRAYS (NOT objects). First element is header row, rest are data rows. " +
         "  Example: [[\"name\",\"sell\",\"compare_at\",\"cost\",\"qty\",\"supplier_qty\"],[\"Red/M\",5.02,10.00,2.51,100,500]]. " +
         "  To read a variant: header[i] is the column name, row[i] is the value. Default shows first 3 variants. " +
-        "- skus_more: number of remaining variants not shown (use dsers.product.preview with variant_offset/variant_limit to paginate). " +
+        "- skus_more: number of remaining variants not shown (use dsers_product_preview with variant_offset/variant_limit to paginate). " +
         "- skus_offset: current offset (0 if omitted). " +
         "- stock: total store inventory. stock_low: true if stock < 5 units. " +
         "- supplier_stock: total supplier inventory (may differ from store stock). " +
@@ -223,7 +223,7 @@ export function registerTools(
           .string()
           .optional()
           .describe(
-            "Store ID or display name from dsers.store.discover. Required when the account has multiple stores.",
+            "Store ID or display name from dsers_store_discover. Required when the account has multiple stores.",
           ),
         visibility_mode: z
           .string()
@@ -328,11 +328,11 @@ export function registerTools(
   );
 
   server.registerTool(
-    "dsers.product.preview",
+    "dsers_product_preview",
     {
       title: "Import Draft Preview",
       description:
-        "Reload preview for an import job. Same response shape as dsers.product.import. " +
+        "Reload preview for an import job. Same response shape as dsers_product_import. " +
         "Use this to re-read the current draft state or paginate through variants. " +
         "Key fields: sell_price (store listing price, dollars), cost (supplier price, dollars), " +
         "compare_at_price (strikethrough price, dollars). " +
@@ -347,7 +347,7 @@ export function registerTools(
       inputSchema: {
         job_id: z
           .string()
-          .describe("Job ID returned by dsers.product.import."),
+          .describe("Job ID returned by dsers_product_import."),
         variant_offset: z
           .number()
           .optional()
@@ -382,17 +382,17 @@ export function registerTools(
   );
 
   server.registerTool(
-    "dsers.product.visibility",
+    "dsers_product_visibility",
     {
       title: "Shopify / Wix Product Visibility Toggle",
       description:
         "Change the visibility mode of a prepared job before pushing it to the store. " +
-        "Call this between dsers.product.import and dsers.store.push to switch between draft and published. " +
+        "Call this between dsers_product_import and dsers_store_push to switch between draft and published. " +
         "Returns: job_id, status, visibility_mode.",
       inputSchema: {
         job_id: z
           .string()
-          .describe("Job ID returned by dsers.product.import."),
+          .describe("Job ID returned by dsers_product_import."),
         visibility_mode: z.string().describe(
           "New visibility mode. " +
             "backend_only: save as draft, not visible to shoppers — SAFE. " +
@@ -414,7 +414,7 @@ export function registerTools(
   );
 
   server.registerTool(
-    "dsers.store.push",
+    "dsers_store_push",
     {
       title: "Push Product to Shopify / Wix Store",
       description:
@@ -434,7 +434,7 @@ export function registerTools(
           .string()
           .optional()
           .describe(
-            "Single job ID from dsers.product.import. Used for single-push or multi-store mode.",
+            "Single job ID from dsers_product_import. Used for single-push or multi-store mode.",
           ),
         job_ids_json: z
           .string()
@@ -449,7 +449,7 @@ export function registerTools(
           .string()
           .optional()
           .describe(
-            "Target store ID or display name from dsers.store.discover. Required when the account has multiple stores.",
+            "Target store ID or display name from dsers_store_discover. Required when the account has multiple stores.",
           ),
         target_stores_json: z
           .string()
@@ -535,7 +535,7 @@ export function registerTools(
   );
 
   server.registerTool(
-    "dsers.job.status",
+    "dsers_job_status",
     {
       title: "Import / Push Job Status Tracker",
       description:
@@ -546,7 +546,7 @@ export function registerTools(
         job_id: z
           .string()
           .describe(
-            "Job ID from dsers.product.import or dsers.store.push.",
+            "Job ID from dsers_product_import or dsers_store_push.",
           ),
       },
       annotations: {
@@ -564,7 +564,7 @@ export function registerTools(
   );
 
   server.registerTool(
-    "dsers.product.delete",
+    "dsers_product_delete",
     {
       title: "Delete Product from Import List",
       description:
@@ -588,7 +588,7 @@ export function registerTools(
           .string()
           .describe(
             "The import list item ID to delete. " +
-            "Obtain from dsers.product.preview (provider_state.import_item_id) " +
+            "Obtain from dsers_product_preview (provider_state.import_item_id) " +
             "or from searchImportList results.",
           ),
         confirm: coerceBool.describe(
@@ -614,7 +614,7 @@ export function registerTools(
   // ── Prompts ──
 
   server.prompt(
-    "dsers.workflow.quick-import",
+    "dsers_workflow_quick-import",
     "Quick product import workflow — import a single AliExpress, Alibaba, or Accio.com product and push it to your Shopify or Wix store as a draft.",
     {
       product_url: z
@@ -633,10 +633,10 @@ export function registerTools(
             type: "text" as const,
             text:
               `Import this product and push it to ${store_name || "my store"} as a draft:\n${product_url}\n\n` +
-              "Steps: 1) Call dsers.store.discover to find the store. " +
-              "2) Call dsers.product.import with the URL. " +
+              "Steps: 1) Call dsers_store_discover to find the store. " +
+              "2) Call dsers_product_import with the URL. " +
               "3) Show me the preview (title, price, variants). " +
-              "4) Call dsers.store.push with visibility_mode=backend_only.",
+              "4) Call dsers_store_push with visibility_mode=backend_only.",
           },
         },
       ],
@@ -644,7 +644,7 @@ export function registerTools(
   );
 
   server.prompt(
-    "dsers.workflow.bulk-import",
+    "dsers_workflow_bulk-import",
     "Bulk import multiple products with a pricing multiplier — import several supplier URLs at once and apply a price markup before pushing to your store.",
     {
       product_urls: z
@@ -671,9 +671,9 @@ export function registerTools(
               text:
                 `Bulk import these ${urls.length} products with a ${price_multiplier}x price markup and push them to ${store_name || "my store"}:\n\n` +
                 urls.map((u, i) => `${i + 1}. ${u}`).join("\n") +
-                "\n\nSteps: 1) dsers.store.discover. " +
-                `2) dsers.product.import with source_urls_json='${urlsJson}' and rules_json='{"pricing":{"mode":"multiplier","multiplier":${price_multiplier}}}'. ` +
-                "3) Show previews. 4) dsers.store.push for each job.",
+                "\n\nSteps: 1) dsers_store_discover. " +
+                `2) dsers_product_import with source_urls_json='${urlsJson}' and rules_json='{"pricing":{"mode":"multiplier","multiplier":${price_multiplier}}}'. ` +
+                "3) Show previews. 4) dsers_store_push for each job.",
             },
           },
         ],
@@ -682,7 +682,7 @@ export function registerTools(
   );
 
   server.prompt(
-    "dsers.workflow.multi-push",
+    "dsers_workflow_multi-push",
     "Push one product to all connected Shopify and Wix stores at once — useful for sellers managing multiple storefronts.",
     {
       product_url: z
@@ -697,9 +697,9 @@ export function registerTools(
             type: "text" as const,
             text:
               `Import this product and push it to ALL my stores:\n${product_url}\n\n` +
-              "Steps: 1) dsers.store.discover — list all stores. " +
-              "2) dsers.product.import with the URL. " +
-              "3) dsers.store.push with target_stores_json containing all store names from step 1.",
+              "Steps: 1) dsers_store_discover — list all stores. " +
+              "2) dsers_product_import with the URL. " +
+              "3) dsers_store_push with target_stores_json containing all store names from step 1.",
           },
         },
       ],
@@ -707,7 +707,7 @@ export function registerTools(
   );
 
   server.prompt(
-    "dsers.workflow.seo-optimize",
+    "dsers_workflow_seo-optimize",
     "Import a product, use your LLM capabilities to rewrite the title and description for SEO, then push the optimized listing to the store.",
     {
       product_url: z
@@ -732,8 +732,8 @@ export function registerTools(
               `Import this product and optimize it for SEO before pushing to ${store_name || "my store"}:\n${product_url}\n` +
               (target_audience ? `Target audience: ${target_audience}\n` : "") +
               "\nWorkflow:\n" +
-              "1) dsers.store.discover — find the target store.\n" +
-              "2) dsers.product.import with the URL (no content rules yet) — get the raw preview.\n" +
+              "1) dsers_store_discover — find the target store.\n" +
+              "2) dsers_product_import with the URL (no content rules yet) — get the raw preview.\n" +
               "3) Review the 'title' from the preview (first import has no title_after since no rules applied yet).\n" +
               "4) [YOU DO THIS] Rewrite the title: remove supplier noise like [HOT], brand spam, ALL-CAPS. " +
               "Make it clean, keyword-rich, and appealing to shoppers" +
@@ -741,10 +741,10 @@ export function registerTools(
               "5) [YOU DO THIS] Rewrite the description: turn the raw supplier HTML into a professional, " +
               "conversion-focused product description with benefits, features, and a clear CTA. " +
               "Keep it concise (150-300 words).\n" +
-              "6) dsers.product.import with the SAME job_id + rules_json containing title_override and description_override_html " +
+              "6) dsers_product_import with the SAME job_id + rules_json containing title_override and description_override_html " +
               "with your rewritten content. This re-applies rules without re-importing.\n" +
               "7) Show me the updated preview for approval.\n" +
-              "8) After I confirm, dsers.store.push to the target store.",
+              "8) After I confirm, dsers_store_push to the target store.",
           },
         },
       ],

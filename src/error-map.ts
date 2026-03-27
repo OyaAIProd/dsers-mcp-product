@@ -127,7 +127,7 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
         "The import job was created on a different server instance that has since been recycled. " +
         "The job state could not be recovered from the job_id token.",
       action:
-        "Call dsers.product.import again with the same source_url to re-import. " +
+        "Call dsers_product_import again with the same source_url to re-import. " +
         "The product likely already exists in the import list and will be found automatically.",
     },
   ],
@@ -146,8 +146,8 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
       summary: "Multiple stores found — target_store required",
       cause: "The DSers account has more than one linked store and no target was specified.",
       action:
-        "Call dsers.store.discover to see available stores, then provide the target_store parameter " +
-        "(store_ref or display_name) in dsers.store.push.",
+        "Call dsers_store_discover to see available stores, then provide the target_store parameter " +
+        "(store_ref or display_name) in dsers_store_push.",
     },
   ],
   [
@@ -156,7 +156,7 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
       summary: "Store not found",
       cause: "The specified target_store does not match any store linked to this DSers account.",
       action:
-        "Call dsers.store.discover to list available stores and use the exact store_ref or display_name from the response.",
+        "Call dsers_store_discover to list available stores and use the exact store_ref or display_name from the response.",
     },
   ],
   [
@@ -174,7 +174,7 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
     {
       summary: "Missing job_id",
       cause: "The job_id parameter was not provided.",
-      action: "Use the job_id returned by dsers.product.import in your previous call.",
+      action: "Use the job_id returned by dsers_product_import in your previous call.",
     },
   ],
   [
@@ -218,7 +218,7 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
       cause: "$$RAW$$",
       action:
         "STOP and show the user the EXACT issue above in plain language. " +
-        "Then either: (1) fix the pricing rules with dsers.product.import (re-apply mode: pass job_id + rules_json), or " +
+        "Then either: (1) fix the pricing rules with dsers_product_import (re-apply mode: pass job_id + rules_json), or " +
         "(2) if the user explicitly confirms they understand the risk, retry with force_push=true. " +
         "NEVER set force_push silently — you must get user confirmation first.",
     },
@@ -240,7 +240,7 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
       cause:
         "The import job's draft data has expired (server restarted) and the job has no import_item_id to recover from.",
       action:
-        "Call dsers.product.import with the original source_url to create a fresh import, " +
+        "Call dsers_product_import with the original source_url to create a fresh import, " +
         "then apply any rules to the new job_id. " +
         "If you don't have the URL, ask the user for the product link.",
     },
@@ -253,7 +253,7 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
         "The job's internal state is incomplete (no import_item_id), so the draft " +
         "cannot be re-fetched from DSers.",
       action:
-        "Call dsers.product.import with the original source_url to create a fresh import. " +
+        "Call dsers_product_import with the original source_url to create a fresh import. " +
         "If you don't have the URL, ask the user for the product link.",
     },
   ],
@@ -298,7 +298,7 @@ const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
       cause: "$$RAW$$",
       action:
         "Fix the invalid rule parameters listed above. " +
-        "Call dsers.rules.validate with the corrected rules to verify before retrying. " +
+        "Call dsers_rules_validate with the corrected rules to verify before retrying. " +
         "Common issues: multiplier must be > 0, fixed_markup must be >= 0 (in dollars), " +
         "round_digits must be 0-10, pricing mode must be one of: multiplier, fixed_markup.",
     },

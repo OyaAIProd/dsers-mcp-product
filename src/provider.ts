@@ -510,7 +510,7 @@ export class PrivateDsersProvider implements ImportProvider {
         }
       } catch (pollErr: unknown) {
         warnings.push(
-          `Push status polling failed (${pollErr instanceof Error ? pollErr.message : "unknown error"}). The push may still be processing — call dsers.job.status later to check.`,
+          `Push status polling failed (${pollErr instanceof Error ? pollErr.message : "unknown error"}). The push may still be processing — call dsers_job_status later to check.`,
         );
       }
     }
@@ -1102,7 +1102,7 @@ export class PrivateDsersProvider implements ImportProvider {
     if (!targetStore) {
       if (stores.length === 1) return stores[0];
       throw new Error(
-        `Multiple stores are available: ${storeNames}. Provide target_store with the store_ref or display_name from dsers.store.discover.`,
+        `Multiple stores are available: ${storeNames}. Provide target_store with the store_ref or display_name from dsers_store_discover.`,
       );
     }
     const target = targetStore.trim().toLowerCase();
@@ -1112,7 +1112,7 @@ export class PrivateDsersProvider implements ImportProvider {
         return store;
     }
     throw new Error(
-      `Unknown target_store '${targetStore}'. Available stores: ${storeNames}. Use the store_ref or display_name from dsers.store.discover.`,
+      `Unknown target_store '${targetStore}'. Available stores: ${storeNames}. Use the store_ref or display_name from dsers_store_discover.`,
     );
   }
 

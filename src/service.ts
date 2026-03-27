@@ -256,7 +256,7 @@ export class ImportFlowService {
     if (validatedRules.errors?.length) {
       throw new Error(
         "Rule validation failed: " + validatedRules.errors.join("; ") +
-          " RECOVERY: Fix the rule parameters and retry. Call dsers.rules.validate to pre-check rules.",
+          " RECOVERY: Fix the rule parameters and retry. Call dsers_rules_validate to pre-check rules.",
       );
     }
 
@@ -374,7 +374,7 @@ export class ImportFlowService {
     const jobId = String(payload.job_id ?? "").trim();
     if (!jobId)
       throw new Error(
-        "job_id is required. RECOVERY: Use the job_id returned by a previous dsers.product.import call.",
+        "job_id is required. RECOVERY: Use the job_id returned by a previous dsers_product_import call.",
       );
     const job = this.store.load(jobId);
     if (job._recovered && !job.draft) {
@@ -391,8 +391,8 @@ export class ImportFlowService {
     const jobId = String(payload.job_id ?? "").trim();
     if (!jobId)
       throw new Error(
-        "job_id is required. RECOVERY: Use the job_id returned by a previous dsers.product.import call. " +
-          "If the job_id is lost, re-import the product with dsers.product.import using the source_url.",
+        "job_id is required. RECOVERY: Use the job_id returned by a previous dsers_product_import call. " +
+          "If the job_id is lost, re-import the product with dsers_product_import using the source_url.",
       );
     const job = this.store.load(jobId);
     if (!job.original_draft) {
@@ -401,7 +401,7 @@ export class ImportFlowService {
       } else {
         throw new Error(
           "Cannot re-apply rules: the draft data for this job has expired and cannot be recovered. " +
-            "RECOVERY: Call dsers.product.import with the original source_url to create a fresh import, " +
+            "RECOVERY: Call dsers_product_import with the original source_url to create a fresh import, " +
             "then apply rules to the new job_id. " +
             "USER_HINT: Ask the user for the product URL if you don't have it.",
         );
@@ -417,7 +417,7 @@ export class ImportFlowService {
     if (validatedRules.errors?.length) {
       throw new Error(
         "Rule validation failed: " + validatedRules.errors.join("; ") +
-          " RECOVERY: Fix the rule parameters and retry. Call dsers.rules.validate to pre-check rules.",
+          " RECOVERY: Fix the rule parameters and retry. Call dsers_rules_validate to pre-check rules.",
       );
     }
 
@@ -468,7 +468,7 @@ export class ImportFlowService {
     if (!jobId || !visibilityMode) {
       throw new Error(
         "job_id and visibility_mode are both required. " +
-          "RECOVERY: Provide job_id (from dsers.product.import) and visibility_mode " +
+          "RECOVERY: Provide job_id (from dsers_product_import) and visibility_mode " +
           "(backend_only = draft/hidden, sell_immediately = published on storefront).",
       );
     }
@@ -500,7 +500,7 @@ export class ImportFlowService {
     const jobId = String(payload.job_id ?? "").trim();
     if (!jobId)
       throw new Error(
-        "job_id is required. RECOVERY: Use the job_id from dsers.product.import. " +
+        "job_id is required. RECOVERY: Use the job_id from dsers_product_import. " +
           "If the job_id is lost, re-import the product first.",
       );
 
@@ -533,7 +533,7 @@ export class ImportFlowService {
     if (!forcePush && safety.blocked.length) {
       throw new Error(
         `Push blocked by safety check:\n${safety.blocked.join("\n")}\n` +
-          "RECOVERY: Either (1) fix pricing with dsers.product.import (re-apply mode: job_id + rules_json), " +
+          "RECOVERY: Either (1) fix pricing with dsers_product_import (re-apply mode: job_id + rules_json), " +
           "or (2) set force_push=true ONLY after showing the user the exact risk and getting explicit confirmation. " +
           "USER_HINT: Show the user each blocked reason in plain language before asking to override.",
       );
@@ -592,7 +592,7 @@ export class ImportFlowService {
     if (!jobId) {
       throw new Error(
         "job_id is required when using target_stores. " +
-          "RECOVERY: Use the job_id from dsers.product.import. " +
+          "RECOVERY: Use the job_id from dsers_product_import. " +
           "If the job_id is lost, re-import the product first.",
       );
     }
@@ -629,7 +629,7 @@ export class ImportFlowService {
     if (!jobIds.length) {
       throw new Error(
         "job_ids must be a non-empty list. " +
-          "RECOVERY: Provide job_ids_json with at least one job_id from dsers.product.import.",
+          "RECOVERY: Provide job_ids_json with at least one job_id from dsers_product_import.",
       );
     }
     const batchId = `batch-${randomUUID().slice(0, 12)}`;
@@ -672,7 +672,7 @@ export class ImportFlowService {
     if (!importItemId)
       throw new Error(
         "Cannot recover job: no import_item_id found in the job state. " +
-          "RECOVERY: Call dsers.product.import with the original source_url to create a fresh import. " +
+          "RECOVERY: Call dsers_product_import with the original source_url to create a fresh import. " +
           "USER_HINT: Ask the user for the product URL if you don't have it.",
       );
     const itemPayload = await this.provider.fetchImportItem(importItemId);
@@ -718,7 +718,7 @@ export class ImportFlowService {
     if (!importItemId) {
       throw new Error(
         "import_item_id is required. " +
-        "RECOVERY: Call dsers.product.preview with the job_id to get the import_item_id, " +
+        "RECOVERY: Call dsers_product_preview with the job_id to get the import_item_id, " +
         "or use searchImportList to find the item. " +
         "USER_HINT: Ask the user which product to delete.",
       );
@@ -756,7 +756,7 @@ export class ImportFlowService {
     const jobId = String(payload.job_id ?? "").trim();
     if (!jobId)
       throw new Error(
-        "job_id is required. RECOVERY: Use the job_id returned by dsers.product.import or dsers.store.push.",
+        "job_id is required. RECOVERY: Use the job_id returned by dsers_product_import or dsers_store_push.",
       );
     const job = this.store.load(jobId);
     const result: Record<string, any> = {

@@ -43,7 +43,7 @@ export function validatePushSafety(
       blocked.push(
         `Variant "${label}" has zero or negative sell price ($${fmtDollars(offer ?? 0)}). ` +
         `This would give the product away for free. ` +
-        `Fix with dsers.product.import (re-apply mode: pass job_id + rules_json) or adjust pricing rules.`,
+        `Fix with dsers_product_import (re-apply mode: pass job_id + rules_json) or adjust pricing rules.`,
       );
     } else if (offer != null && cost != null) {
       if (offer < cost) {

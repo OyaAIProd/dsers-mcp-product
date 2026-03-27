@@ -32,7 +32,7 @@ describe("formatErrorForAgent", () => {
 
     it("Unknown job_id → re-import suggestion", () => {
       const result = formatErrorForAgent(new Error("Unknown job_id: abc123"));
-      expect(result).toContain("dsers.product.import");
+      expect(result).toContain("dsers_product_import");
     });
 
     it("No linked stores found → connect store", () => {
@@ -42,7 +42,7 @@ describe("formatErrorForAgent", () => {
 
     it("Multiple stores are available → discover stores", () => {
       const result = formatErrorForAgent(new Error("Multiple stores are available: Store A, Store B"));
-      expect(result).toContain("dsers.store.discover");
+      expect(result).toContain("dsers_store_discover");
     });
 
     it("source_url is required → provide URL", () => {
@@ -83,7 +83,7 @@ describe("formatErrorForAgent", () => {
   describe("no reference to non-existent tools", () => {
     it("push-guard action mentions re-apply mode, not dsers.product.rules.reapply", () => {
       const result = formatErrorForAgent(new Error("Push blocked by safety check:\nBad price"));
-      expect(result).not.toContain("dsers.product.rules.reapply");
+      expect(result).not.toContain("dsers_product_rules_reapply");
       expect(result).toContain("re-apply mode");
     });
   });
