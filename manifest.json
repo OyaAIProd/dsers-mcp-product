@@ -75,6 +75,10 @@
     {
       "name": "dsers_job_status",
       "description": "Check if a push finished and whether it succeeded"
+    },
+    {
+      "name": "dsers_product_delete",
+      "description": "Delete a product from the DSers import list (irreversible, requires confirmation)"
     }
   ],
   "prompts": [

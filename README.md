@@ -197,7 +197,7 @@ dsers-mcp-product/
 └── .env.example
 ```
 
-### Seven Tools
+### Eight Tools
 
 | # | Tool | What it does |
 |---|------|-------------|
@@ -208,6 +208,7 @@ dsers-mcp-product/
 | 5 | `dsers_product_visibility` | Set whether the product shows up in your store or stays as a hidden draft |
 | 6 | `dsers_store_push` | Send products to your Shopify or Wix store — one at a time, in bulk, or to all stores at once |
 | 7 | `dsers_job_status` | Check if a push finished and whether it succeeded |
+| 8 | `dsers_product_delete` | Delete a product from the DSers import list (irreversible, requires confirmation) |
 
 All tools return clear error messages so your AI agent knows what went wrong and what to do next — no cryptic error codes.
 
@@ -417,7 +418,7 @@ npx tsc --noEmit
 npx @smithery/cli dev ./src/index.ts
 ```
 
-### 七个工具
+### 八个工具
 
 | # | 工具 | 干什么的 |
 |---|------|---------|
@@ -428,6 +429,7 @@ npx @smithery/cli dev ./src/index.ts
 | 5 | `dsers_product_visibility` | 设置商品在店铺里是上架展示还是隐藏草稿 |
 | 6 | `dsers_store_push` | 把商品推到你的 Shopify 或 Wix 店铺 — 单个推、批量推、或一次推到所有店铺 |
 | 7 | `dsers_job_status` | 看看推送完了没、成功了没 |
+| 8 | `dsers_product_delete` | 从 DSers 导入列表中删除商品（不可恢复，需确认） |
 
 报错时会返回清晰的消息，AI 助手能看懂出了什么问题、该怎么办 — 不会给你一串看不懂的错误码。
 

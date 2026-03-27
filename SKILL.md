@@ -73,6 +73,7 @@ Always follow this order:
 5. `dsers_product_visibility` — (optional) toggle `backend_only` / `sell_immediately`
 6. `dsers_store_push` — push to store(s)
 7. `dsers_job_status` — verify push result
+8. `dsers_product_delete` — delete a product from the import list (irreversible, requires `confirm: true`)
 
 Step 1 is required before any import — it returns the store list, available shipping profiles, and rule constraints.
 
@@ -205,6 +206,12 @@ Map user intent to `push_options` (passed as `push_options_json` — a JSON stri
 
 - `status`: `preview_ready` → `push_requested` → `completed` or `failed`
 - `has_push_result`: boolean — true after push has been attempted
+
+### dsers_product_delete
+
+- `deleted`: boolean — true if successfully deleted
+- Requires `confirm: true` parameter. Without it, returns a warning asking the agent to confirm with the user first.
+- This action is **irreversible** — the product is permanently removed from the DSers import list.
 
 ## Error Handling
 

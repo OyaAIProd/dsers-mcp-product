@@ -66,6 +66,7 @@ Session 有效期约 **6 小时**，过期后工具会返回错误提示。
 5. `dsers_product_visibility` — （可选）切换草稿 / 上架模式
 6. `dsers_store_push` — 推送到店铺
 7. `dsers_job_status` — 验证推送结果
+8. `dsers_product_delete` — 从导入列表中删除商品（不可恢复，需 `confirm: true`）
 
 第 1 步是必须的，它返回店铺列表、配送方案和规则约束。
 
@@ -185,6 +186,12 @@ Session 有效期约 **6 小时**，过期后工具会返回错误提示。
 
 - `status`：`preview_ready` → `push_requested` → `completed` 或 `failed`
 - `has_push_result`：布尔值 — 推送执行后为 true
+
+### dsers_product_delete
+
+- `deleted`：布尔值 — 删除成功为 true
+- 需要传 `confirm: true` 参数。不传则返回警告，要求 agent 先与用户确认。
+- 此操作**不可恢复** — 商品将从 DSers 导入列表中永久移除。
 
 ## 错误处理
 
