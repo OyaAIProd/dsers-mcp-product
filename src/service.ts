@@ -866,6 +866,11 @@ export class ImportFlowService {
     if (job.visibility_mode && job.visibility_mode !== "backend_only")
       preview.visibility = job.visibility_mode;
 
+    const importItemId = job.provider_state?.import_item_id;
+    if (importItemId) preview.import_item_id = importItemId;
+
+    if (job.push_status) preview.push_status = job.push_status;
+
     const warns = [...new Set<string>(job.warnings ?? [])]
       .map((w: string) => w.length > 100 ? w.slice(0, 97) + "..." : w)
       .slice(0, 5);
