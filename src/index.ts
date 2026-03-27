@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { resolve } from "node:path";
+import { homedir } from "node:os";
 import { configFromToken, configFromParams } from "./dsers/config.js";
 import { buildProvider } from "./provider.js";
 import { ImportFlowService } from "./service.js";
@@ -10,7 +11,7 @@ import { SERVER_INSTRUCTIONS } from "./instructions.js";
 
 const STATE_DIR =
   process.env.IMPORT_MCP_STATE_DIR ??
-  resolve(process.cwd?.() ?? "/tmp", ".state");
+  resolve(homedir(), ".dsers-mcp", "state");
 
 export const configSchema = z.object({
   dsers_session_id: z.string().optional().describe("DSers session ID. Run 'npx @lofder/dsers-mcp-product login' to get it."),

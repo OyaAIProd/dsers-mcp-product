@@ -8,6 +8,7 @@ import { FileJobStore } from "./job-store.js";
 import { registerTools } from "./tools.js";
 import { SERVER_INSTRUCTIONS } from "./instructions.js";
 import { resolve } from "node:path";
+import { homedir } from "node:os";
 import {
   findChromiumBrowser,
   loginViaCDP,
@@ -148,7 +149,7 @@ async function startServer() {
   }
 
   const STATE_DIR =
-    process.env.IMPORT_MCP_STATE_DIR ?? resolve(process.cwd(), ".state");
+    process.env.IMPORT_MCP_STATE_DIR ?? resolve(homedir(), ".dsers-mcp", "state");
 
   const provider = buildProvider(dsersConfig);
   const store = new FileJobStore(STATE_DIR);
