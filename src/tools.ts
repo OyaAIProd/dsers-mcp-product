@@ -235,6 +235,7 @@ export function registerTools(
       try {
         if (args.job_id && !args.source_url && !args.source_urls_json) {
           const rulesPayload: Record<string, any> = { job_id: args.job_id };
+          const depFlatRules = buildRulesFromFlatParams(args);
           if (args.rules_json) {
             const parsed = safeJsonParse(
               args.rules_json, "rules_json",
@@ -242,7 +243,9 @@ export function registerTools(
                 'Example: {"pricing": {"mode": "multiplier", "multiplier": 2.0}}',
             );
             if (parsed.error) return fail(new Error(parsed.error));
-            rulesPayload.rules = parsed.value;
+            rulesPayload.rules = { ...depFlatRules, ...parsed.value };
+          } else if (Object.keys(depFlatRules).length) {
+            rulesPayload.rules = depFlatRules;
           } else {
             rulesPayload._keep_existing_rules = true;
           }
