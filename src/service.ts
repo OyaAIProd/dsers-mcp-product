@@ -843,8 +843,13 @@ export class ImportFlowService {
     if (!storeRef) return [];
     const storePricing = await this.provider.getStorePricingRule(storeRef);
     if (!storePricing.enabled) return [];
+    const detail = storePricing.multiplier
+      ? ` (${storePricing.multiplier}x multiplier)`
+      : storePricing.fixed_amount != null
+        ? ` (+${storePricing.fixed_amount} fixed markup)`
+        : "";
     return [
-      `DSers store pricing rule is enabled and will override your MCP pricing rules during push. ` +
+      `DSers store pricing rule is enabled${detail} and will override your MCP pricing rules during push. ` +
       `To use MCP pricing, disable the DSers Pricing Rule in store settings. ` +
       `To use the DSers rule instead, set push_options pricing_rule_behavior='apply_store_pricing_rule'.`,
     ];
