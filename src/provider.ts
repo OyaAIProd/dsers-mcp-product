@@ -72,6 +72,7 @@ export class PrivateDsersProvider implements ImportProvider {
   private aliexpressAppId: string;
   private alibabaAppId: string;
   private resolvedAlibabaAppId: string | null = null;
+  private pricingRuleCache: Record<string, any>[] | null = null;
 
   constructor(config?: DSersConfig) {
     const cfg = config ?? configFromEnv();
@@ -198,20 +199,24 @@ export class PrivateDsersProvider implements ImportProvider {
 
   async getStorePricingRule(storeId: string): Promise<Record<string, any>> {
     try {
-      const res = await settings.getPricingRules(this.client, storeId);
-      const data = res?.data ?? res;
-      if (!data || typeof data !== "object") return { enabled: false };
-      const enabled = Boolean(
-        data.status ?? data.enabled ?? data.isOpen ?? data.is_open,
+      if (!this.pricingRuleCache) {
+        const res = await settings.listPricingRules(this.client);
+        this.pricingRuleCache = res?.data?.settingPricingList ?? [];
+      }
+      const entry = this.pricingRuleCache!.find(
+        (e: any) => String(e.storeId) === String(storeId),
       );
+      if (!entry) return { enabled: false };
+      const enabled = Boolean(entry.status);
       const result: Record<string, any> = { enabled };
       if (enabled) {
-        if (data.assignType != null) result.assign_type = data.assignType;
-        if (data.profitType != null) result.profit_type = data.profitType;
-        if (data.profitRate != null) result.multiplier = Number(data.profitRate);
-        if (data.profitAmount != null) result.fixed_amount = Number(data.profitAmount);
-        if (data.centRoundType != null) result.cent_round = data.centRoundType;
-        if (data.compareAtPriceStatus != null) result.compare_at_enabled = Boolean(data.compareAtPriceStatus);
+        const dp = entry.basicPricing?.defaultPricing;
+        if (dp) {
+          if (dp.pattern === "mul" && dp.price) result.multiplier = Number(dp.price);
+          if (dp.pattern === "add" && dp.price) result.fixed_amount = Number(dp.price);
+        }
+        if (entry.basicPricing?.comparedStatus != null)
+          result.compare_at_enabled = Boolean(entry.basicPricing.comparedStatus);
       }
       return result;
     } catch (err: any) {

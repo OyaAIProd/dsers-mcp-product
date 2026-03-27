@@ -16,6 +16,14 @@ export async function getPricingRules(
   return client.get("/dsers-settings-bff/product/pricing-rule", { storeId });
 }
 
+export async function listPricingRules(
+  client: DSersClient,
+): Promise<Record<string, any>> {
+  return client.get("/dsers-settings-bff/product/pricing-rule/list", {
+    isNewVersion: "true",
+  });
+}
+
 export async function updatePricingRule(
   client: DSersClient,
   rule: Record<string, any>,
