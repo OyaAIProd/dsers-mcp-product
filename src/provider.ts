@@ -41,6 +41,7 @@ const ALI1688_ID_PATTERN = /1688\.com\/(?:offer|product-detail)\/(\d+)\.html/i;
 export interface ImportProvider {
   name: string;
   getRuleCapabilities(targetStore?: string): Promise<Record<string, any>>;
+  getStorePricingRule(storeId: string): Promise<Record<string, any>>;
   prepareCandidate(
     sourceUrl: string,
     sourceHint: string,
@@ -195,6 +196,29 @@ export class PrivateDsersProvider implements ImportProvider {
     };
   }
 
+  async getStorePricingRule(storeId: string): Promise<Record<string, any>> {
+    try {
+      const res = await settings.getPricingRules(this.client, storeId);
+      const data = res?.data ?? res;
+      if (!data || typeof data !== "object") return { enabled: false };
+      const enabled = Boolean(
+        data.status ?? data.enabled ?? data.isOpen ?? data.is_open,
+      );
+      const result: Record<string, any> = { enabled };
+      if (enabled) {
+        if (data.assignType != null) result.assign_type = data.assignType;
+        if (data.profitType != null) result.profit_type = data.profitType;
+        if (data.profitRate != null) result.multiplier = Number(data.profitRate);
+        if (data.profitAmount != null) result.fixed_amount = Number(data.profitAmount);
+        if (data.centRoundType != null) result.cent_round = data.centRoundType;
+        if (data.compareAtPriceStatus != null) result.compare_at_enabled = Boolean(data.compareAtPriceStatus);
+      }
+      return result;
+    } catch {
+      return { enabled: false, _error: "Failed to query store pricing rule" };
+    }
+  }
+
   async prepareCandidate(
     sourceUrl: string,
     sourceHint: string,
@@ -240,11 +264,12 @@ export class PrivateDsersProvider implements ImportProvider {
     if (this.hasReason(importPayload, "ALIBABA_NOT_AVAILABLE")) {
       throw new Error(
         "Cannot import this Alibaba product. Common causes: " +
-        "(1) MOQ > 1 — DSers requires single-piece ordering; " +
-        "(2) product off-shelf or delisted; " +
-        "(3) product not available in target country. " +
-        "RECOVERY: Try a different Alibaba product, or find the same product on AliExpress. " +
-        "USER_HINT: Tell the user the import failed and suggest trying an alternative product URL.",
+        "(1) Alibaba URL imports only support products shipped from local warehouses " +
+        "(e.g., US warehouse for US-targeted stores) — products shipped from China cannot be imported via URL; " +
+        "(2) MOQ > 1 — DSers requires single-piece ordering; " +
+        "(3) product off-shelf or delisted. " +
+        "RECOVERY: Try a different Alibaba product with local warehouse shipping, or find the same product on AliExpress. " +
+        "USER_HINT: Tell the user the import failed — most Alibaba products ship from China and cannot be imported via URL.",
       );
     }
     if (this.hasReason(importPayload, "PRODUCT_STATUS_NOT_ONSELLING")) {

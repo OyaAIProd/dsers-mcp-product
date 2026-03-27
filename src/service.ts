@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 import type { ImportProvider } from "./provider.js";
 import type { JobStore } from "./job-store.js";
 import { normalizePushOptions } from "./push-options.js";
@@ -6,6 +7,9 @@ import { validatePushSafety } from "./push-guard.js";
 import { resolveSourceUrl } from "./resolver.js";
 import { applyRules, normalizeRules } from "./rules.js";
 import { formatErrorForAgent } from "./error-map.js";
+
+const _require = createRequire(import.meta.url);
+const PKG_VERSION: string = (_require("../package.json") as { version: string }).version;
 
 const MAX_WARNING_CHARS = 120;
 const MAX_WARNINGS = 8;
@@ -212,7 +216,10 @@ export class ImportFlowService {
     const targetStore = payload?.target_store;
     const caps = await this.provider.getRuleCapabilities(targetStore);
 
-    const stores = (caps.stores ?? []).map((s: any) => {
+    const rawStores = caps.stores ?? [];
+    const pricingRuleResults = await this.fetchStorePricingRulesWithTimeout(rawStores);
+
+    const stores = rawStores.map((s: any, i: number) => {
       const slim: Record<string, any> = { id: s.store_ref, name: s.display_name };
       if (s.platform) slim.platform = s.platform;
       if (s.shipping_profiles?.length) {
@@ -220,6 +227,8 @@ export class ImportFlowService {
           p.is_default ? `${p.name} *` : p.name,
         );
       }
+      const pr = pricingRuleResults[i];
+      if (pr) slim.pricing_rule = pr;
       return slim;
     });
 
@@ -240,12 +249,34 @@ export class ImportFlowService {
 
     const result: Record<string, any> = { stores, rules };
 
+    result.version = PKG_VERSION;
+
     const acct = caps.account_info ?? {};
     if (acct.aliexpress_auth?.all_expired) result.ae_expired = true;
     const planStatus = String(acct.plan_status ?? "").toLowerCase().replace(/^status_/, "");
     if (planStatus && planStatus !== "active") result.plan_issue = acct.plan_status;
 
     return result;
+  }
+
+  private async fetchStorePricingRulesWithTimeout(
+    stores: Record<string, any>[],
+  ): Promise<(Record<string, any> | null)[]> {
+    if (!stores.length) return [];
+    const TIMEOUT_MS = 500;
+    const fetches = stores.map((s) =>
+      s.store_ref
+        ? this.provider.getStorePricingRule(s.store_ref)
+        : Promise.resolve(null),
+    );
+    const timer = new Promise<"timeout">((resolve) =>
+      setTimeout(() => resolve("timeout"), TIMEOUT_MS),
+    );
+    const race = await Promise.race([Promise.all(fetches), timer]);
+    if (race === "timeout") {
+      return stores.map(() => null);
+    }
+    return race as (Record<string, any> | null)[];
   }
 
   async validateRules(
@@ -618,6 +649,13 @@ export class ImportFlowService {
       throw Object.assign(new Error(JSON.stringify(structured)), { _structured: structured });
     }
 
+    const pricingConflictWarnings = await this.detectPricingRuleConflict(
+      job,
+      providerCaps.stores,
+      targetStore,
+      effectivePushOptions,
+    );
+
     const result = await this.provider.commitCandidate(
       job.provider_state,
       job.draft,
@@ -643,6 +681,7 @@ export class ImportFlowService {
     this.store.save(jobId, job);
 
     const allWarnings = [
+      ...pricingConflictWarnings,
       ...(safety.warnings ?? []),
       ...(pushOptionCheck.warnings ?? []),
       ...(result.warnings ?? []),
@@ -788,6 +827,41 @@ export class ImportFlowService {
     ];
     job.status = "preview_ready";
     this.store.save(job.job_id, job);
+  }
+
+  private async detectPricingRuleConflict(
+    job: Record<string, any>,
+    stores: Record<string, any>[],
+    targetStore: string | null,
+    pushOptions: Record<string, any>,
+  ): Promise<string[]> {
+    const jobRules = job.effective_rules_snapshot ?? job.rules ?? {};
+    if (!jobRules.pricing) return [];
+    const behavior = String(pushOptions.pricing_rule_behavior ?? "keep_manual");
+    if (behavior === "apply_store_pricing_rule") return [];
+    const storeRef = this.resolveStoreRef(stores, targetStore);
+    if (!storeRef) return [];
+    const storePricing = await this.provider.getStorePricingRule(storeRef);
+    if (!storePricing.enabled) return [];
+    return [
+      `DSers store pricing rule is enabled and will override your MCP pricing rules during push. ` +
+      `To use MCP pricing, disable the DSers Pricing Rule in store settings. ` +
+      `To use the DSers rule instead, set push_options pricing_rule_behavior='apply_store_pricing_rule'.`,
+    ];
+  }
+
+  private resolveStoreRef(
+    stores: Record<string, any>[],
+    targetStore: string | null,
+  ): string | null {
+    if (!stores?.length) return null;
+    if (!targetStore) return stores.length === 1 ? (stores[0].store_ref ?? null) : null;
+    const target = targetStore.trim().toLowerCase();
+    for (const s of stores) {
+      if (String(s.store_ref ?? "").toLowerCase() === target) return s.store_ref;
+      if (String(s.display_name ?? "").toLowerCase() === target) return s.store_ref;
+    }
+    return null;
   }
 
   async deleteImportItem(

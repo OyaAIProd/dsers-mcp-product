@@ -34,7 +34,7 @@ function safeJsonParse(
   }
 }
 
-function buildRulesFromFlatParams(args: Record<string, any>): Record<string, any> {
+export function buildRulesFromFlatParams(args: Record<string, any>): Record<string, any> {
   const rules: Record<string, any> = {};
   if (args.pricing_mode) {
     const pricing: Record<string, any> = { mode: args.pricing_mode };
@@ -44,11 +44,11 @@ function buildRulesFromFlatParams(args: Record<string, any>): Record<string, any
     rules.pricing = pricing;
   }
   const content: Record<string, any> = {};
-  if (args.title_override) content.title_override = args.title_override;
-  if (args.title_prefix) content.title_prefix = args.title_prefix;
-  if (args.title_suffix) content.title_suffix = args.title_suffix;
-  if (args.description_override_html) content.description_override_html = args.description_override_html;
-  if (args.description_append_html) content.description_append_html = args.description_append_html;
+  if (args.title_override !== undefined) content.title_override = args.title_override;
+  if (args.title_prefix !== undefined) content.title_prefix = args.title_prefix;
+  if (args.title_suffix !== undefined) content.title_suffix = args.title_suffix;
+  if (args.description_override_html !== undefined) content.description_override_html = args.description_override_html;
+  if (args.description_append_html !== undefined) content.description_append_html = args.description_append_html;
   if (Object.keys(content).length) rules.content = content;
   return rules;
 }

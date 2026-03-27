@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ImportFlowService } from "../src/service.js";
+import { buildRulesFromFlatParams } from "../src/tools.js";
 import type { ImportProvider } from "../src/provider.js";
 import type { JobStore } from "../src/job-store.js";
 
@@ -45,6 +46,7 @@ function createMockProvider(): ImportProvider {
       warnings: [],
       summary: { title: "Test Product", image_count: 2, variant_count: 2 },
     }),
+    getStorePricingRule: vi.fn().mockResolvedValue({ enabled: false }),
     fetchImportItem: vi.fn().mockResolvedValue({ data: {} }),
     normalizeForRecovery: vi.fn().mockReturnValue([
       {
@@ -493,5 +495,104 @@ describe("ImportFlowService", () => {
       });
       expect(result).not.toHaveProperty("options");
     });
+  });
+
+  describe("pricing rule conflict detection", () => {
+    it("warns when MCP pricing and DSers pricing rule both active", async () => {
+      (provider.getStorePricingRule as any).mockResolvedValueOnce({ enabled: true, multiplier: 2 });
+      const importResult = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/1234567890.html",
+        rules: { pricing: { mode: "multiplier", multiplier: 3 } },
+      });
+      const pushResult = await service.confirmPushToStore({ job_id: importResult.job_id });
+      expect(pushResult.warnings).toBeDefined();
+      expect(pushResult.warnings.some((w: string) => w.includes("DSers store pricing rule"))).toBe(true);
+    });
+
+    it("no warning when DSers pricing rule is disabled", async () => {
+      (provider.getStorePricingRule as any).mockResolvedValueOnce({ enabled: false });
+      const importResult = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/1234567890.html",
+        rules: { pricing: { mode: "multiplier", multiplier: 3 } },
+      });
+      const pushResult = await service.confirmPushToStore({ job_id: importResult.job_id });
+      const hasConflict = (pushResult.warnings ?? []).some((w: string) => w.includes("DSers store pricing rule"));
+      expect(hasConflict).toBe(false);
+    });
+
+    it("no warning when no MCP pricing rules", async () => {
+      const importResult = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/1234567890.html",
+      });
+      const pushResult = await service.confirmPushToStore({ job_id: importResult.job_id });
+      expect(provider.getStorePricingRule).not.toHaveBeenCalled();
+    });
+
+    it("no warning when pricing_rule_behavior is apply_store_pricing_rule", async () => {
+      const importResult = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/1234567890.html",
+        rules: { pricing: { mode: "multiplier", multiplier: 2 } },
+      });
+      const pushResult = await service.confirmPushToStore({
+        job_id: importResult.job_id,
+        push_options: { pricing_rule_behavior: "apply_store_pricing_rule" },
+      });
+      expect(provider.getStorePricingRule).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("discover returns version", () => {
+    it("includes version field", async () => {
+      const caps = await service.getRuleCapabilities({});
+      expect(caps.version).toBeDefined();
+      expect(typeof caps.version).toBe("string");
+      expect(caps.version).toMatch(/^\d+\.\d+\.\d+/);
+    });
+  });
+});
+
+describe("buildRulesFromFlatParams", () => {
+  it("passes empty string as clear signal for content fields", () => {
+    const rules = buildRulesFromFlatParams({ title_prefix: "" });
+    expect(rules.content).toBeDefined();
+    expect(rules.content.title_prefix).toBe("");
+  });
+
+  it("passes empty string for all five content fields", () => {
+    const rules = buildRulesFromFlatParams({
+      title_override: "",
+      title_prefix: "",
+      title_suffix: "",
+      description_override_html: "",
+      description_append_html: "",
+    });
+    expect(rules.content.title_override).toBe("");
+    expect(rules.content.title_prefix).toBe("");
+    expect(rules.content.title_suffix).toBe("");
+    expect(rules.content.description_override_html).toBe("");
+    expect(rules.content.description_append_html).toBe("");
+  });
+
+  it("does not include content when fields are undefined", () => {
+    const rules = buildRulesFromFlatParams({});
+    expect(rules.content).toBeUndefined();
+  });
+
+  it("builds pricing rules normally", () => {
+    const rules = buildRulesFromFlatParams({
+      pricing_mode: "multiplier",
+      pricing_multiplier: 2.5,
+    });
+    expect(rules.pricing).toEqual({ mode: "multiplier", multiplier: 2.5 });
+  });
+
+  it("combines pricing and content", () => {
+    const rules = buildRulesFromFlatParams({
+      pricing_mode: "fixed_markup",
+      pricing_fixed_markup: 5,
+      title_prefix: "NEW: ",
+    });
+    expect(rules.pricing.mode).toBe("fixed_markup");
+    expect(rules.content.title_prefix).toBe("NEW: ");
   });
 });
