@@ -842,6 +842,13 @@ export class ImportFlowService {
     const storeRef = this.resolveStoreRef(stores, targetStore);
     if (!storeRef) return [];
     const storePricing = await this.provider.getStorePricingRule(storeRef);
+    if (storePricing._error) {
+      return [
+        `Could not verify DSers store pricing rule status (${storePricing._error}). ` +
+        `If the store has a pricing rule enabled, it may override your MCP pricing. ` +
+        `Check DSers Settings > Pricing Rule, or set push_options pricing_rule_behavior='apply_store_pricing_rule'.`,
+      ];
+    }
     if (!storePricing.enabled) return [];
     const detail = storePricing.multiplier
       ? ` (${storePricing.multiplier}x multiplier)`

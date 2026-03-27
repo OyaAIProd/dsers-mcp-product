@@ -539,6 +539,18 @@ describe("ImportFlowService", () => {
       });
       expect(provider.getStorePricingRule).not.toHaveBeenCalled();
     });
+
+    it("warns when API fails to query pricing rule", async () => {
+      (provider.getStorePricingRule as any).mockResolvedValueOnce({ enabled: false, _error: "HTTP 403: Forbidden" });
+      const importResult = await service.prepareImportCandidate({
+        source_url: "https://www.aliexpress.com/item/1234567890.html",
+        rules: { pricing: { mode: "multiplier", multiplier: 2 } },
+      });
+      const pushResult = await service.confirmPushToStore({ job_id: importResult.job_id });
+      expect(pushResult.warnings).toBeDefined();
+      expect(pushResult.warnings.some((w: string) => w.includes("Could not verify"))).toBe(true);
+      expect(pushResult.warnings.some((w: string) => w.includes("HTTP 403"))).toBe(true);
+    });
   });
 
   describe("discover returns version", () => {

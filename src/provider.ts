@@ -214,8 +214,11 @@ export class PrivateDsersProvider implements ImportProvider {
         if (data.compareAtPriceStatus != null) result.compare_at_enabled = Boolean(data.compareAtPriceStatus);
       }
       return result;
-    } catch {
-      return { enabled: false, _error: "Failed to query store pricing rule" };
+    } catch (err: any) {
+      const detail = err?.status
+        ? `HTTP ${err.status}: ${String(err.body ?? "").slice(0, 200)}`
+        : String(err?.message ?? err).slice(0, 200);
+      return { enabled: false, _error: detail };
     }
   }
 
