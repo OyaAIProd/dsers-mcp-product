@@ -1,7 +1,15 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { resolve } from "node:path";
+import { resolve, dirname } from "node:path";
 import { homedir } from "node:os";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PKG_VERSION = (() => {
+  try { return JSON.parse(readFileSync(resolve(__dirname, "..", "package.json"), "utf8")).version; }
+  catch { return "0.0.0"; }
+})();
 import { configFromToken, configFromParams } from "./dsers/config.js";
 import { buildProvider } from "./provider.js";
 import { ImportFlowService } from "./service.js";
@@ -40,7 +48,7 @@ export default function createServer(context: { config: DsersConfig }) {
   const service = new ImportFlowService(provider, store);
 
   const server = new McpServer(
-    { name: "dsers-mcp-product", version: "1.2.0" },
+    { name: "dsers-mcp-product", version: PKG_VERSION },
     { instructions: SERVER_INSTRUCTIONS },
   );
 

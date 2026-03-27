@@ -7,8 +7,16 @@ import { ImportFlowService } from "./service.js";
 import { FileJobStore } from "./job-store.js";
 import { registerTools } from "./tools.js";
 import { SERVER_INSTRUCTIONS } from "./instructions.js";
-import { resolve } from "node:path";
+import { resolve, dirname } from "node:path";
 import { homedir } from "node:os";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PKG_VERSION = (() => {
+  try { return JSON.parse(readFileSync(resolve(__dirname, "..", "package.json"), "utf8")).version; }
+  catch { return "0.0.0"; }
+})();
 import {
   findChromiumBrowser,
   loginViaCDP,
@@ -156,7 +164,7 @@ async function startServer() {
   const service = new ImportFlowService(provider, store);
 
   const server = new McpServer(
-    { name: "dsers-mcp-product", version: "1.2.0" },
+    { name: "dsers-mcp-product", version: PKG_VERSION },
     { instructions: SERVER_INSTRUCTIONS },
   );
 
