@@ -3,6 +3,10 @@ import { z } from "zod";
 import type { ImportFlowService } from "./service.js";
 import { formatErrorForAgent } from "./error-map.js";
 
+const coerceBool = z
+  .union([z.boolean(), z.string().transform((v) => v === "true")])
+  .optional();
+
 function toJson(data: any): string {
   return JSON.stringify(data);
 }
@@ -467,14 +471,11 @@ export function registerTools(
               "sales_channels (string[]), only_push_specifications (bool). " +
               'Example: {"image_strategy": "all_available", "shipping_profile_name": "DSers Shipping Profile"}',
           ),
-        force_push: z
-          .boolean()
-          .optional()
-          .describe(
-            "Override pre-push safety checks. ONLY set true after you have shown the user the specific risk " +
-              "(e.g., 'This product is priced below cost — you will lose $X per sale') and they explicitly confirmed. " +
-              "Never set this silently.",
-          ),
+        force_push: coerceBool.describe(
+          "Override pre-push safety checks. ONLY set true after you have shown the user the specific risk " +
+            "(e.g., 'This product is priced below cost — you will lose $X per sale') and they explicitly confirmed. " +
+            "Never set this silently.",
+        ),
       },
       annotations: {
         readOnlyHint: false,
@@ -583,14 +584,11 @@ export function registerTools(
             "Obtain from dsers.product.preview (provider_state.import_item_id) " +
             "or from searchImportList results.",
           ),
-        confirm: z
-          .boolean()
-          .optional()
-          .describe(
-            "Set to true to confirm deletion. " +
+        confirm: coerceBool.describe(
+          "Set to true to confirm deletion. " +
             "First call without this to get a confirmation prompt, " +
             "then call again with confirm=true after user approves.",
-          ),
+        ),
       },
       annotations: {
         readOnlyHint: false,

@@ -1437,6 +1437,21 @@ export class PrivateDsersProvider implements ImportProvider {
       }
     }
 
+    // Back-fill option value IDs from variant option_values when top-level
+    // options lack proper IDs (common with AliExpress data).
+    for (const opt of normalizedOptions) {
+      for (const val of opt.values) {
+        if (val.id && val.id !== "") continue;
+        for (const v of variants) {
+          if (!Array.isArray(v.option_values)) continue;
+          const match = v.option_values.find(
+            (ov: any) => ov.optionId === opt.id && ov.valueName === val.name,
+          );
+          if (match?.valueId) { val.id = match.valueId; break; }
+        }
+      }
+    }
+
     const draft: Record<string, any> = {
       title: String(item[titleKey!] ?? ""),
       description_html: String(item[descriptionKey!] ?? ""),

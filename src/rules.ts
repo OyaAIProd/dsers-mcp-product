@@ -601,9 +601,10 @@ function _applyOptionEdits(
       for (const v of variants) {
         if (!Array.isArray(v.option_values)) continue;
         for (const ov of v.option_values) {
-          if (ov.optionId === opt.id && ov.valueId === val.id) {
-            ov.valueName = newName;
-          }
+          if (ov.optionId !== opt.id) continue;
+          const idMatch = val.id && val.id !== "" && ov.valueId === val.id;
+          const nameMatch = ov.valueName === valueName;
+          if (idMatch || nameMatch) ov.valueName = newName;
         }
         _rebuildVariantTitle(v);
       }
@@ -619,9 +620,13 @@ function _applyOptionEdits(
       const before = variants.length;
       for (let i = variants.length - 1; i >= 0; i--) {
         const ov = variants[i].option_values;
-        if (Array.isArray(ov) && ov.some((o: any) => o.optionId === opt.id && o.valueId === removedVal.id)) {
-          variants.splice(i, 1);
-        }
+        if (!Array.isArray(ov)) continue;
+        const matched = ov.some((o: any) => {
+          if (o.optionId !== opt.id) return false;
+          if (removedVal.id && removedVal.id !== "" && o.valueId === removedVal.id) return true;
+          return o.valueName === valueName;
+        });
+        if (matched) variants.splice(i, 1);
       }
       variantsRemoved += before - variants.length;
     } else if (action === "remove_option") {
