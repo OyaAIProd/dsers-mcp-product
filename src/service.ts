@@ -204,7 +204,8 @@ export class ImportFlowService {
 
     const acct = caps.account_info ?? {};
     if (acct.aliexpress_auth?.all_expired) result.ae_expired = true;
-    if (acct.plan_status && acct.plan_status !== "active") result.plan_issue = acct.plan_status;
+    const planStatus = String(acct.plan_status ?? "").toLowerCase().replace(/^status_/, "");
+    if (planStatus && planStatus !== "active") result.plan_issue = acct.plan_status;
 
     return result;
   }

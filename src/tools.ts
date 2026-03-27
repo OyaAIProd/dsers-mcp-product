@@ -48,7 +48,9 @@ export function registerTools(
         "Retrieve available stores and supported rules for the connected DSers account. " +
         "Call this first — the response contains store IDs and configuration needed by all subsequent operations. " +
         "Returns: stores (each with id, name, platform, ship[]), rules (pricing modes, content, images). " +
-        "ae_expired/plan_issue only appear if there is a problem.",
+        "ae_expired means AliExpress re-authorization is needed but does NOT block imports — proceed normally. " +
+        "plan_issue only appears if the DSers subscription has a real problem (expired, suspended). " +
+        "After calling this tool, proceed to the next step (import, preview, etc.) — do NOT retry discover.",
       inputSchema: {
         target_store: z
           .string()
