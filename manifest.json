@@ -65,6 +65,10 @@
       "description": "Review an imported product — title, price, variants, stock at a glance"
     },
     {
+      "name": "dsers_product_update_rules",
+      "description": "Update pricing, content, images, or variant rules on an already-imported product (incremental merge)"
+    },
+    {
       "name": "dsers_product_visibility",
       "description": "Set whether a product shows up in your store or stays as a hidden draft"
     },

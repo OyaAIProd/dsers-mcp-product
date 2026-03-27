@@ -6,6 +6,27 @@ import { validatePushSafety } from "./push-guard.js";
 import { resolveSourceUrl } from "./resolver.js";
 import { applyRules, normalizeRules } from "./rules.js";
 
+const MAX_WARNING_CHARS = 120;
+const MAX_WARNINGS = 8;
+const BATCH_CONCURRENCY = 5;
+
+const DECLARATIVE_RULE_FAMILIES = new Set(["pricing", "content", "images", "variant_overrides"]);
+
+function mergeRuleFamilies(
+  existing: Record<string, any>,
+  incoming: Record<string, any>,
+): Record<string, any> {
+  const merged = { ...existing };
+  for (const key of Object.keys(incoming)) {
+    if (incoming[key] === null || incoming[key] === undefined) {
+      delete merged[key];
+    } else {
+      merged[key] = incoming[key];
+    }
+  }
+  return merged;
+}
+
 function utcNow(): string {
   return new Date().toISOString();
 }
@@ -342,31 +363,40 @@ export class ImportFlowService {
     }
     const sharedRules = payload.rules;
 
-    const results: Record<string, any>[] = [];
+    const items = sourceUrls.map((raw, idx) => {
+      const [url, itemPayload] = parseBatchItem(raw, shared, sharedRules);
+      return { idx, url, itemPayload };
+    });
+
+    const results: Record<string, any>[] = new Array(items.length);
     let succeeded = 0;
     let failed = 0;
+    let cursor = 0;
 
-    for (let idx = 0; idx < sourceUrls.length; idx++) {
-      const [url, itemPayload] = parseBatchItem(
-        sourceUrls[idx],
-        shared,
-        sharedRules,
-      );
-      if (!url) {
-        results.push({ index: idx, source_url: "", error: "Empty or invalid URL entry" });
-        failed++;
-        continue;
+    const runNext = async (): Promise<void> => {
+      while (cursor < items.length) {
+        const i = cursor++;
+        const { idx, url, itemPayload } = items[i];
+        if (!url) {
+          results[idx] = { index: idx, source_url: "", error: "Empty or invalid URL entry" };
+          failed++;
+          continue;
+        }
+        try {
+          const preview = await this.prepareSingle(itemPayload);
+          results[idx] = { ...preview, index: idx };
+          succeeded++;
+        } catch (err: any) {
+          results[idx] = { index: idx, source_url: url, error: String(err.message ?? err) };
+          failed++;
+        }
       }
-      try {
-        const preview = await this.prepareSingle(itemPayload);
-        results.push({ ...preview, index: idx });
-        succeeded++;
-      } catch (err: any) {
-        results.push({ index: idx, source_url: url, error: String(err.message ?? err) });
-        failed++;
-      }
-    }
-    return { batch_id: batchId, total: sourceUrls.length, succeeded, failed, results };
+    };
+
+    const workers = Math.min(BATCH_CONCURRENCY, items.length);
+    await Promise.all(Array.from({ length: workers }, () => runNext()));
+
+    return { batch_id: batchId, total: sourceUrls.length, succeeded, failed, results: [...results] };
   }
 
   async getImportPreview(
@@ -409,9 +439,11 @@ export class ImportFlowService {
       }
     }
 
+    const existingRules = job.effective_rules_snapshot ?? job.rules ?? {};
+    const incomingRules = payload.rules ?? {};
     const rules = payload._keep_existing_rules
-      ? (job.effective_rules_snapshot ?? job.rules ?? {})
-      : (payload.rules ?? {});
+      ? existingRules
+      : mergeRuleFamilies(existingRules, incomingRules);
     const targetStore = payload.target_store ?? job.target_store ?? null;
     const providerCaps = await this.provider.getRuleCapabilities(targetStore);
     const validatedRules = normalizeRules(rules, providerCaps.rule_families);
@@ -449,9 +481,6 @@ export class ImportFlowService {
     }
 
     job.warnings = [
-      ...(job.warnings?.filter((w: string) =>
-        !w.startsWith("Rule re-applied") && !w.startsWith("Failed to persist"),
-      ) ?? []),
       `Rule re-applied at ${job.updated_at}`,
       ...(validatedRules.warnings ?? []),
       ...((ruled.summary?.warnings as string[]) ?? []),
@@ -532,12 +561,25 @@ export class ImportFlowService {
 
     const safety = validatePushSafety(job.draft, job.original_draft);
     if (!forcePush && safety.blocked.length) {
-      throw new Error(
-        `Push blocked by safety check:\n${safety.blocked.join("\n")}\n` +
-          "RECOVERY: Either (1) fix pricing with dsers_product_import (re-apply mode: job_id + rules_json), " +
-          "or (2) set force_push=true ONLY after showing the user the exact risk and getting explicit confirmation. " +
-          "USER_HINT: Show the user each blocked reason in plain language before asking to override.",
-      );
+      const structured: Record<string, any> = {
+        error: "push_blocked_by_safety_check",
+        blocked: safety.blocked,
+        warnings: safety.warnings,
+        fix_options: [
+          {
+            action: "dsers_product_update_rules",
+            params: { job_id: jobId, pricing_mode: "multiplier", pricing_multiplier: 2.0 },
+            description: "Fix pricing rules to ensure sell_price > cost",
+          },
+          {
+            action: "dsers_store_push",
+            params: { job_id: jobId, force_push: true },
+            requires_user_confirmation: true,
+            description: "Force push after showing user the exact risk and getting explicit consent",
+          },
+        ],
+      };
+      throw Object.assign(new Error(JSON.stringify(structured)), { _structured: structured });
     }
 
     const result = await this.provider.commitCandidate(
@@ -578,8 +620,8 @@ export class ImportFlowService {
     };
     if (allWarnings.length) {
       pushResponse.warnings = [...new Set(allWarnings)]
-        .map((w: string) => w.length > 120 ? w.slice(0, 117) + "..." : w)
-        .slice(0, 8);
+        .map((w: string) => w.length > MAX_WARNING_CHARS ? w.slice(0, MAX_WARNING_CHARS - 3) + "..." : w)
+        .slice(0, MAX_WARNINGS);
     }
     return pushResponse;
   }
@@ -772,8 +814,8 @@ export class ImportFlowService {
       ...(job.warnings ?? []),
       ...(job.push_option_warnings ?? []),
     ])]
-      .map((w: string) => w.length > 120 ? w.slice(0, 117) + "..." : w)
-      .slice(0, 8);
+      .map((w: string) => w.length > MAX_WARNING_CHARS ? w.slice(0, MAX_WARNING_CHARS - 3) + "..." : w)
+      .slice(0, MAX_WARNINGS);
     if (allWarns.length) result.warnings = allWarns;
     return result;
   }
@@ -815,7 +857,11 @@ export class ImportFlowService {
     }
 
     preview.variants_count = variants.length;
-    preview.images = (final?.images ?? []).length;
+    const imageList: string[] = final?.images ?? [];
+    preview.images = imageList.length;
+    if (imageList.length) {
+      preview.image_urls = imageList.slice(0, 5);
+    }
 
     if ((original?.description_html ?? "") !== (final?.description_html ?? "")) {
       preview.desc_changed = true;
@@ -867,14 +913,19 @@ export class ImportFlowService {
     if (job.visibility_mode && job.visibility_mode !== "backend_only")
       preview.visibility = job.visibility_mode;
 
+    const activeRules = job.effective_rules_snapshot ?? job.rules;
+    if (activeRules && Object.keys(activeRules).length) {
+      preview.active_rules = activeRules;
+    }
+
     const importItemId = job.provider_state?.import_item_id;
     if (importItemId) preview.import_item_id = importItemId;
 
     if (job.push_status) preview.push_status = job.push_status;
 
     const warns = [...new Set<string>(job.warnings ?? [])]
-      .map((w: string) => w.length > 100 ? w.slice(0, 97) + "..." : w)
-      .slice(0, 5);
+      .map((w: string) => w.length > MAX_WARNING_CHARS ? w.slice(0, MAX_WARNING_CHARS - 3) + "..." : w)
+      .slice(0, MAX_WARNINGS);
     if (warns.length) preview.warnings = warns;
 
     return preview;

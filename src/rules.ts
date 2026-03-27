@@ -95,6 +95,9 @@ function _normalizePricing(
       errors.push("pricing.fixed_price must be >= 0.");
       return {};
     }
+    if (price === 0) {
+      warnings.push("pricing.fixed_price is $0 — the product will be free. Is this intentional?");
+    }
     normalized.fixed_price = price;
   }
   if (mode !== "provider_default") {
@@ -185,6 +188,9 @@ function _normalizeImages(
       if (keepFirstN < 0) {
         errors.push("images.keep_first_n must be >= 0.");
         continue;
+      }
+      if (keepFirstN === 0) {
+        warnings.push("images.keep_first_n is 0 — ALL images will be removed.");
       }
       normalized[key] = keepFirstN;
       continue;
@@ -383,8 +389,8 @@ function _applyPricing(draft: Record<string, any>, pricing: Record<string, any>,
   const multiplier = _asFloat(pricing.multiplier, 1) ?? 1;
   const markup = _asFloat(pricing.fixed_markup, 0) ?? 0;
   const fixedPrice = _asFloat(pricing.fixed_price, 0) ?? 0;
-  const roundDigits = pricing.round_digits ?? 0;
-  const roundTo = (v: number, d: number) => Math.round(v * 10 ** d) / 10 ** d;
+  const roundDigits = pricing.round_digits ?? 2;
+  const roundDollars = (cents: number, d: number) => Math.round((cents / 100) * 10 ** d) / 10 ** d * 100;
   const variants = draft.variants ?? [];
   let changed = 0;
   for (const v of variants) {
@@ -394,15 +400,29 @@ function _applyPricing(draft: Record<string, any>, pricing: Record<string, any>,
     } else {
       const base = _costPrice(v);
       if (base == null) continue;
-      if (mode === "multiplier") newPrice = roundTo(base * multiplier, roundDigits);
-      else if (mode === "fixed_markup") newPrice = roundTo(base + markup * 100, roundDigits);
+      let rawCents: number;
+      if (mode === "multiplier") rawCents = base * multiplier;
+      else if (mode === "fixed_markup") rawCents = base + markup * 100;
       else {
         summary.warnings.push(`Unsupported pricing mode '${mode}' was ignored.`);
         return;
       }
+      newPrice = Math.round(roundDollars(rawCents, roundDigits));
     }
     v.offer_price = newPrice;
     changed++;
+  }
+  if (changed) {
+    for (const v of variants) {
+      if (v.offer_price != null && v.compare_at_price != null && v.compare_at_price < v.offer_price) {
+        summary.warnings.push(
+          "compare_at_price is now lower than sell_price after pricing rules. " +
+          "This creates a misleading strikethrough on Shopify. " +
+          "Set compare_at_price via variant_overrides to fix.",
+        );
+        break;
+      }
+    }
   }
   summary.applied.push({ rule_family: "pricing", mode, variants_changed: changed });
 }
@@ -585,6 +605,7 @@ function _applyOptionEdits(
   const options: Record<string, any>[] = draft.options ?? [];
   const variants: Record<string, any>[] = draft.variants ?? [];
   let variantsRemoved = 0;
+  const renamedOptions = new Map<string, string>();
 
   for (const edit of edits) {
     const action = edit.action;
@@ -592,12 +613,20 @@ function _applyOptionEdits(
     const opt = options.find((o: any) => o.name === optionName);
 
     if (!opt) {
-      summary.warnings.push(`option_edits: option '${optionName}' not found — skipped.`);
+      const newName = renamedOptions.get(optionName);
+      if (newName) {
+        summary.warnings.push(
+          `option_edits: option '${optionName}' was renamed to '${newName}' by a prior edit — use '${newName}' instead.`,
+        );
+      } else {
+        summary.warnings.push(`option_edits: option '${optionName}' not found — skipped.`);
+      }
       continue;
     }
 
     if (action === "rename_option") {
       const newName = String(edit.new_name);
+      renamedOptions.set(optionName, newName);
       opt.name = newName;
       for (const v of variants) {
         if (!Array.isArray(v.option_values)) continue;
@@ -675,7 +704,9 @@ function _applyOptionEdits(
 
 function _rebuildVariantTitle(v: Record<string, any>): void {
   if (!Array.isArray(v.option_values) || !v.option_values.length) return;
-  v.title = v.option_values.map((ov: any) => ov.valueName).join(" / ");
+  const original = String(v.title ?? "");
+  const sep = original.includes(" / ") ? " / " : original.includes("-") ? "-" : " / ";
+  v.title = v.option_values.map((ov: any) => ov.valueName).join(sep);
 }
 
 export function applyRules(

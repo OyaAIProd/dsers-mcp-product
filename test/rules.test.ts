@@ -96,7 +96,7 @@ describe("pricing accuracy", () => {
       mkDraft([mkV(333, 0)]),
       { pricing: { mode: "multiplier", multiplier: 1.005, round_digits: 2 } },
     );
-    expect(draft.variants[0].offer_price).toBe(334.67);
+    expect(draft.variants[0].offer_price).toBe(335);
   });
 
   it("multiple variants each get their own price", () => {

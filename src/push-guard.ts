@@ -29,6 +29,14 @@ export function validatePushSafety(
   let stockDataAvailable = false;
 
   const origVariants: Record<string, any>[] = originalDraft?.variants ?? [];
+  const origPriceMap = new Map<string, number>();
+  for (const ov of origVariants) {
+    const key = ov.variant_ref ?? ov.sku ?? ov.title;
+    if (key) {
+      const p = toNum(ov.offer_price);
+      if (p != null) origPriceMap.set(String(key), p);
+    }
+  }
 
   for (let idx = 0; idx < variants.length; idx++) {
     const v = variants[idx];
@@ -37,13 +45,11 @@ export function validatePushSafety(
     const cost = toNum(v.supplier_price);
     const stock = toNum(v.stock);
 
-    // ── Price checks ──
-
     if (offer === 0 || (offer != null && offer <= 0)) {
       blocked.push(
         `Variant "${label}" has zero or negative sell price ($${fmtDollars(offer ?? 0)}). ` +
         `This would give the product away for free. ` +
-        `Fix with dsers_product_import (re-apply mode: pass job_id + rules_json) or adjust pricing rules.`,
+        `Fix with dsers_product_update_rules or adjust pricing rules.`,
       );
     } else if (offer != null && cost != null) {
       if (offer < cost) {
@@ -70,9 +76,9 @@ export function validatePushSafety(
       );
     }
 
-    // Detect large price drops compared to original
-    if (originalDraft && offer != null && idx < origVariants.length) {
-      const origOffer = toNum(origVariants[idx]?.offer_price);
+    if (originalDraft && offer != null) {
+      const key = v.variant_ref ?? v.sku ?? v.title;
+      const origOffer = key ? origPriceMap.get(String(key)) : null;
       if (origOffer != null && origOffer > 0 && offer < origOffer * 0.2) {
         warnings.push(
           `Variant "${label}" price dropped >80%: $${fmtDollars(origOffer)} → $${fmtDollars(offer)}. Verify pricing rules are correct.`,

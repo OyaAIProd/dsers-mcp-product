@@ -240,7 +240,7 @@ describe("ImportFlowService", () => {
       });
       await expect(
         service.confirmPushToStore({ job_id: importResult.job_id }),
-      ).rejects.toThrow("Push blocked by safety check");
+      ).rejects.toThrow("push_blocked_by_safety_check");
     });
 
     it("force_push overrides safety block", async () => {
@@ -432,7 +432,7 @@ describe("ImportFlowService", () => {
       const result = await service.prepareImportCandidate({
         source_url: "https://www.aliexpress.com/item/warn.html",
       });
-      expect(result.warnings[0].length).toBeLessThanOrEqual(100);
+      expect(result.warnings[0].length).toBeLessThanOrEqual(120);
       expect(result.warnings[0]).toContain("...");
     });
   });

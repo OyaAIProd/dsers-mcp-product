@@ -348,7 +348,19 @@ function extractDsersReason(err: any): string | null {
 }
 
 export function formatErrorForAgent(err: any): string {
+  if (err?._structured) {
+    return JSON.stringify(err._structured);
+  }
+
   const rawMessage = String(err.message ?? err);
+
+  try {
+    const parsed = JSON.parse(rawMessage);
+    if (parsed && typeof parsed === "object" && parsed.error) {
+      return rawMessage;
+    }
+  } catch { /* not JSON, continue */ }
+
   const reason = extractDsersReason(err);
 
   let mapped: AgentError | undefined;

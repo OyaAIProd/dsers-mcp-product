@@ -34,6 +34,25 @@ function safeJsonParse(
   }
 }
 
+function buildRulesFromFlatParams(args: Record<string, any>): Record<string, any> {
+  const rules: Record<string, any> = {};
+  if (args.pricing_mode) {
+    const pricing: Record<string, any> = { mode: args.pricing_mode };
+    if (args.pricing_multiplier != null) pricing.multiplier = args.pricing_multiplier;
+    if (args.pricing_fixed_markup != null) pricing.fixed_markup = args.pricing_fixed_markup;
+    if (args.pricing_fixed_price != null) pricing.fixed_price = args.pricing_fixed_price;
+    rules.pricing = pricing;
+  }
+  const content: Record<string, any> = {};
+  if (args.title_override) content.title_override = args.title_override;
+  if (args.title_prefix) content.title_prefix = args.title_prefix;
+  if (args.title_suffix) content.title_suffix = args.title_suffix;
+  if (args.description_override_html) content.description_override_html = args.description_override_html;
+  if (args.description_append_html) content.description_append_html = args.description_append_html;
+  if (Object.keys(content).length) rules.content = content;
+  return rules;
+}
+
 export function registerTools(
   server: McpServer,
   getService: (() => ImportFlowService) | ImportFlowService,
@@ -123,76 +142,13 @@ export function registerTools(
       description:
         "Import product(s) from supplier URL(s) into the DSers import list and return a preview. " +
         "Supports AliExpress, Alibaba, and Accio.com URLs. " +
-        "THREE MODES: " +
-        "(1) New import — provide source_url (single) or source_urls_json (batch). " +
-        "(2) Re-apply rules — provide job_id + rules_json to update pricing/content without re-importing. " +
-        "(3) Refresh preview — provide job_id alone (no rules_json) to reload current state. " +
-        "EXPIRED/LOST JOB_ID: If a job_id returns 'expired' or 'Unknown job_id', call this tool again " +
-        "with the original source_url. DSers will locate the existing draft in the import list automatically " +
-        "(no duplicate is created). Then apply rules to the new job_id. " +
-        "MODIFYING IMPORTED PRODUCTS: To change an already-imported product when you don't have the job_id, " +
-        "re-import it with source_url + rules_json. DSers finds the existing draft. " +
-        "CONTENT RULES (via rules_json content key): " +
-        "title_override replaces the entire title. title_prefix/title_suffix wrap the original title. " +
-        "description_override_html replaces the full description (HTML string). " +
-        "description_append_html appends HTML after the original. tags_add is an array of strings (e.g. [\"summer\",\"sale\"]). NOTE: tags are applied to the draft but NOT persisted to DSers in the current version — they will be sent during push to Shopify. " +
-        "Content rules are cumulative with pricing rules — include both in one rules_json if needed. " +
-        "IMAGE RULES (via rules_json images key): " +
-        "Pipeline order: drop_indexes (delete) → reorder (rearrange) → add_urls (append new) → keep_first_n (truncate). " +
-        "drop_indexes: array of 0-based indexes to remove. " +
-        "reorder: array of old indexes in desired new order, e.g. [2,0,1] moves 3rd image to 1st position. " +
-        "  Images not listed in reorder are appended after the listed ones in their original order. " +
-        "add_urls: array of public image URLs (must start with http:// or https://) to append to the gallery. " +
-        "keep_first_n: truncate to first N images after all other operations. " +
-        "images[0] becomes the main/hero image on Shopify. " +
-        "IMAGE UPLOAD WORKFLOW: This tool only accepts image URLs — NOT base64 or binary data (would exceed token limits). " +
-        "If the user wants to add custom images: " +
-        "1) Guide them to upload the image through the app's UI or to an image hosting service first. " +
-        "2) Once they have a public URL (https://...), pass it via images.add_urls or variant_overrides.image_url. " +
-        "3) NEVER attempt to send raw image data through the conversation — it will fail or crash the context. " +
-        "Per-variant images: use variant_overrides with image_url field to set a specific variant's image. " +
-        "OPTION EDITING (via rules_json option_edits key): " +
-        "Options define variant dimensions (e.g. Color, Size). Each option has values; each variant is a combination of option values. " +
-        "option_edits is an array of edit actions: " +
-        "- rename_option: {action:'rename_option', option_name:'Color', new_name:'Style'} — safe, renames the dimension label. " +
-        "- rename_value: {action:'rename_value', option_name:'Color', value_name:'Green Crocodile', new_name:'Forest Green'} — safe, renames a value and updates all associated variant titles. " +
-        "- remove_value: {action:'remove_value', option_name:'Color', value_name:'Pig'} — DESTRUCTIVE: permanently removes ALL variants that use this value. Cannot be undone without re-importing the product. " +
-        "- remove_option: {action:'remove_option', option_name:'Ships From'} — removes an entire option dimension from all variants (reduces option count but keeps variants). " +
-        "AGENT PROTOCOL for remove_value: " +
-        "1) ALWAYS call dsers_product_preview first to show the user the current options and variant count. " +
-        "2) Calculate how many variants will be deleted and tell the user explicitly (e.g. 'This will remove 3 of 12 variants permanently'). " +
-        "3) Get EXPLICIT user confirmation before proceeding. " +
-        "4) After applying, show the updated preview to confirm the result. " +
-        "To see current options, use dsers_product_preview — the response includes an 'options' field with name and values for each option. " +
-        "RESPONSE FORMAT: " +
-        "- title: product title (string). If content rules changed the title, returns title_before + title_after instead. " +
-        "- sell_price: store listing price in dollars (number or {min,max} range). " +
-        "- cost: supplier purchase price in dollars. " +
-        "- compare_at_price: Shopify strikethrough/original price in dollars. " +
-        "- no_markup: true when sell_price equals cost — means user has NOT set a pricing rule yet, suggest they add one. " +
-        "- desc_changed: true if content rules modified the description. " +
-        "- variants_count: total number of variants/SKUs. " +
-        "- skus: variant table as ARRAY OF ARRAYS (NOT objects). First element is header row, rest are data rows. " +
-        "  Example: [[\"name\",\"sell\",\"compare_at\",\"cost\",\"qty\",\"supplier_qty\"],[\"Red/M\",5.02,10.00,2.51,100,500]]. " +
-        "  To read a variant: header[i] is the column name, row[i] is the value. Default shows first 3 variants. " +
-        "- skus_more: number of remaining variants not shown (use dsers_product_preview with variant_offset/variant_limit to paginate). " +
-        "- skus_offset: current offset (0 if omitted). " +
-        "- stock: total store inventory. stock_low: true if stock < 5 units. " +
-        "- supplier_stock: total supplier inventory (may differ from store stock). " +
-        "- ship_to: destination country. ship_from: origin/warehouse country. " +
-        "- images: number of product images. " +
-        "- store: target store name (if set). visibility: visibility mode (only shown if not backend_only). " +
-        "- warnings: array of alert strings (max 5).",
+        "Provide source_url (single) or source_urls_json (batch). " +
+        "Optionally apply rules at import time via rules_json or flat params. " +
+        "EXPIRED/LOST JOB_ID: Re-import with source_url — DSers finds the existing draft (no duplicate). " +
+        "To UPDATE rules on an existing import, use dsers_product_update_rules instead. " +
+        "RESPONSE: title, sell_price, cost, compare_at_price (dollars), variants_count, skus (array of arrays), " +
+        "images (count), active_rules, warnings. Use dsers_product_preview to paginate variants.",
       inputSchema: {
-        job_id: z
-          .string()
-          .optional()
-          .describe(
-            "Re-apply mode: provide a job_id from a previous import together with rules_json to update rules " +
-              "without re-importing from the supplier. The original draft is preserved and new rules are applied on top. " +
-              "If the job has expired (server restart), the draft is auto-recovered from DSers. " +
-              "If recovery fails, re-import with source_url instead.",
-          ),
         source_url: z
           .string()
           .optional()
@@ -233,35 +189,40 @@ export function registerTools(
           .describe(
             "Product visibility after push. " +
               "backend_only (default): saved as draft, not visible to shoppers — SAFE, no financial risk. " +
-              "sell_immediately: published and LIVE on the storefront — RISK: product becomes purchasable immediately, verify pricing and inventory before using. Always confirm with user before setting this.",
+              "sell_immediately: published and LIVE on the storefront — RISK: verify pricing and inventory first.",
+          ),
+        job_id: z
+          .string()
+          .optional()
+          .describe(
+            "(DEPRECATED — use dsers_product_update_rules) " +
+              "When provided without source_url, forwards to dsers_product_update_rules internally.",
           ),
         rules_json: z
           .string()
           .optional()
           .describe(
-            "Optional rules as JSON string applied to all items. " +
-              "Top-level keys: pricing, content, images, variant_overrides, option_edits. " +
-              "PRICING — choose the right mode based on user intent: " +
-              "| User says | Mode | Example | " +
-              "| 'set price to $9.99' / 'all $9.99' | fixed_price | {\"mode\":\"fixed_price\",\"fixed_price\":9.99} | " +
-              "| 'double the price' / '3x markup' | multiplier | {\"mode\":\"multiplier\",\"multiplier\":2.0} | " +
-              "| 'add $5 to cost' / '$5 markup' | fixed_markup | {\"mode\":\"fixed_markup\",\"fixed_markup\":5.00} | " +
-              "| 'Red $9.99, Blue $12.99' (different per variant) | Use variant_overrides instead | (see below) | " +
-              "fixed_price: sets ALL variants to exact dollar amount (ignores cost). " +
-              "multiplier: sell = cost × multiplier. fixed_markup: sell = cost + markup (dollars). " +
-              "All modes accept optional round_digits (int 0-10). " +
-              "VARIANT_OVERRIDES — per-variant patches, applied AFTER global pricing (overrides take priority): " +
-              "Array of {match (substring of variant title/SKU), sell_price (dollars), compare_at_price (dollars), stock (integer), title (string), image_url (string)}. " +
-              "Example: [{\"match\":\"Red\",\"sell_price\":9.99,\"compare_at_price\":19.99},{\"match\":\"Blue\",\"sell_price\":12.99}]. " +
-              "CONTENT: {title_override, title_prefix, title_suffix, description_override_html, description_append_html, tags_add:[\"tag\"]}. " +
-              "IMAGES: Pipeline: drop_indexes → reorder → add_urls → keep_first_n. " +
-              "add_urls: array of public http/https URLs. WARNING: drop_indexes is IRREVERSIBLE once pushed; confirm with user. " +
-              "OPTION_EDITS: Array of {action, option_name, value_name?, new_name?}. " +
-              "Actions: rename_option, rename_value, remove_value (DESTRUCTIVE — deletes variants!), remove_option. " +
-              'Example: {"pricing":{"mode":"fixed_price","fixed_price":9.99},' +
-              '"content":{"title_override":"My Product"},' +
-              '"variant_overrides":[{"match":"Premium","sell_price":14.99}]}',
+            "Rules as JSON string. Keys: pricing, content, images, variant_overrides, option_edits. " +
+              "PRICING: {mode:'fixed_price',fixed_price:9.99} | {mode:'multiplier',multiplier:2} | {mode:'fixed_markup',fixed_markup:5}. " +
+              "VARIANT_OVERRIDES: [{match:'Red',sell_price:9.99,compare_at_price:19.99}]. " +
+              "CONTENT: {title_override, title_prefix, title_suffix, description_override_html, tags_add:['tag']}. " +
+              "IMAGES: {drop_indexes, reorder, add_urls, keep_first_n}. " +
+              "OPTION_EDITS: [{action:'rename_option',option_name:'Color',new_name:'Style'}].",
           ),
+        pricing_mode: z.enum(["multiplier", "fixed_markup", "fixed_price"]).optional()
+          .describe("Flat param: pricing mode. Use instead of rules_json for simple pricing."),
+        pricing_multiplier: z.number().optional()
+          .describe("Flat param: multiplier value when pricing_mode='multiplier'."),
+        pricing_fixed_markup: z.number().optional()
+          .describe("Flat param: markup in dollars when pricing_mode='fixed_markup'."),
+        pricing_fixed_price: z.number().optional()
+          .describe("Flat param: exact price in dollars when pricing_mode='fixed_price'."),
+        title_override: z.string().optional()
+          .describe("Flat param: replace entire product title."),
+        title_prefix: z.string().optional()
+          .describe("Flat param: prepend to product title."),
+        title_suffix: z.string().optional()
+          .describe("Flat param: append to product title."),
       },
       annotations: {
         readOnlyHint: false,
@@ -287,7 +248,9 @@ export function registerTools(
           }
           if (args.target_store) rulesPayload.target_store = args.target_store;
           if (args.visibility_mode) rulesPayload.visibility_mode = args.visibility_mode;
-          return ok(await svc().reapplyRules(rulesPayload));
+          const result = await svc().reapplyRules(rulesPayload);
+          result._deprecated = "Use dsers_product_update_rules instead of dsers_product_import with job_id.";
+          return ok(result);
         }
 
         const payload: Record<string, any> = {};
@@ -314,6 +277,7 @@ export function registerTools(
         if (args.target_store) payload.target_store = args.target_store;
         payload.visibility_mode = args.visibility_mode || "backend_only";
 
+        const flatRules = buildRulesFromFlatParams(args);
         if (args.rules_json) {
           const parsed = safeJsonParse(
             args.rules_json, "rules_json",
@@ -321,7 +285,9 @@ export function registerTools(
               'Example: {"pricing": {"mode": "multiplier", "multiplier": 2.0}}',
           );
           if (parsed.error) return fail(new Error(parsed.error));
-          payload.rules = parsed.value;
+          payload.rules = { ...flatRules, ...parsed.value };
+        } else if (Object.keys(flatRules).length) {
+          payload.rules = flatRules;
         }
 
         return ok(await svc().prepareImportCandidate(payload));
@@ -379,6 +345,89 @@ export function registerTools(
           variant_offset: variant_offset ?? 0,
           variant_limit: variant_limit ?? 0,
         }));
+      } catch (err) { return fail(err); }
+    },
+  );
+
+  server.registerTool(
+    "dsers_product_update_rules",
+    {
+      title: "Update Rules on Imported Product",
+      description:
+        "Update pricing, content, images, or variant rules on an already-imported product. " +
+        "Rules are merged incrementally by FAMILY: only families you provide are replaced, " +
+        "others are preserved from the previous call. " +
+        "Example: call with pricing only → pricing set, content preserved. " +
+        "Then call with content only → content set, pricing still preserved. " +
+        "To REMOVE a family, pass it as null (e.g. rules_json='{\"pricing\":null}'). " +
+        "option_edits are always fully replaced (not merged) because they are ordered operations. " +
+        "RESPONSE: same as dsers_product_import — includes active_rules showing all currently applied rules. " +
+        "Use dsers_product_preview to see the current state before updating.",
+      inputSchema: {
+        job_id: z
+          .string()
+          .describe("Job ID from a previous dsers_product_import call."),
+        rules_json: z
+          .string()
+          .optional()
+          .describe(
+            "Rules as JSON string. Keys: pricing, content, images, variant_overrides, option_edits. " +
+              "PRICING: {mode:'fixed_price',fixed_price:9.99} | {mode:'multiplier',multiplier:2} | {mode:'fixed_markup',fixed_markup:5}. " +
+              "VARIANT_OVERRIDES: [{match:'Red',sell_price:9.99,compare_at_price:19.99}]. " +
+              "CONTENT: {title_override, title_prefix, title_suffix, description_override_html, tags_add:['tag']}. " +
+              "IMAGES: {drop_indexes, reorder, add_urls, keep_first_n}. " +
+              "OPTION_EDITS: [{action:'rename_option',option_name:'Color',new_name:'Style'}]. " +
+              "Only include families you want to change. Others are preserved automatically.",
+          ),
+        pricing_mode: z.enum(["multiplier", "fixed_markup", "fixed_price"]).optional()
+          .describe("Flat param: pricing mode. Use instead of rules_json for simple pricing."),
+        pricing_multiplier: z.number().optional()
+          .describe("Flat param: multiplier value when pricing_mode='multiplier'."),
+        pricing_fixed_markup: z.number().optional()
+          .describe("Flat param: markup in dollars when pricing_mode='fixed_markup'."),
+        pricing_fixed_price: z.number().optional()
+          .describe("Flat param: exact price in dollars when pricing_mode='fixed_price'."),
+        title_override: z.string().optional()
+          .describe("Flat param: replace entire product title."),
+        title_prefix: z.string().optional()
+          .describe("Flat param: prepend to product title."),
+        title_suffix: z.string().optional()
+          .describe("Flat param: append to product title."),
+        description_override_html: z.string().optional()
+          .describe("Flat param: replace full description (HTML)."),
+        description_append_html: z.string().optional()
+          .describe("Flat param: append HTML to description."),
+        target_store: z.string().optional()
+          .describe("Store ID or name from dsers_store_discover."),
+        visibility_mode: z.string().optional()
+          .describe("backend_only (default, safe) or sell_immediately (live — confirm with user)."),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    async (args) => {
+      try {
+        const rulesPayload: Record<string, any> = { job_id: args.job_id };
+        const flatRules = buildRulesFromFlatParams(args);
+        if (args.rules_json) {
+          const parsed = safeJsonParse(
+            args.rules_json, "rules_json",
+            'Expected a JSON object. Example: {"pricing": {"mode": "multiplier", "multiplier": 2.0}}',
+          );
+          if (parsed.error) return fail(new Error(parsed.error));
+          rulesPayload.rules = { ...flatRules, ...parsed.value };
+        } else if (Object.keys(flatRules).length) {
+          rulesPayload.rules = flatRules;
+        } else {
+          rulesPayload._keep_existing_rules = true;
+        }
+        if (args.target_store) rulesPayload.target_store = args.target_store;
+        if (args.visibility_mode) rulesPayload.visibility_mode = args.visibility_mode;
+        return ok(await svc().reapplyRules(rulesPayload));
       } catch (err) { return fail(err); }
     },
   );
