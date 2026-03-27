@@ -59,14 +59,15 @@ Session 有效期约 **6 小时**，过期后工具会返回错误提示。
 
 ## 工作流程
 
-1. `dsers_store_discover` — 查询可用店铺、配送方案、支持的规则
+1. `dsers_store_discover` — 查询可用店铺、配送方案、定价规则、支持的规则
 2. `dsers_rules_validate` — （可选）先校验规则是否合法
 3. `dsers_product_import` — 导入商品 URL，应用规则，获得预览和 job_id
 4. `dsers_product_preview` — （可选）重新加载已保存的预览
-5. `dsers_product_visibility` — （可选）切换草稿 / 上架模式
-6. `dsers_store_push` — 推送到店铺
-7. `dsers_job_status` — 验证推送结果
-8. `dsers_product_delete` — 从导入列表中删除商品（不可恢复，需 `confirm: true`）
+5. `dsers_product_update_rules` — （可选）对已导入的商品增量编辑定价、内容、图片或变体规则
+6. `dsers_product_visibility` — （可选）切换草稿 / 上架模式
+7. `dsers_store_push` — 推送到店铺
+8. `dsers_job_status` — 验证推送结果
+9. `dsers_product_delete` — 从导入列表中删除商品（不可恢复，需 `confirm: true`）
 
 第 1 步是必须的，它返回店铺列表、配送方案和规则约束。
 
@@ -110,7 +111,7 @@ Session 有效期约 **6 小时**，过期后工具会返回错误提示。
 
 ### 规则
 
-规则在 `dsers_product_import` 时应用并冻结到任务中。推送时不会再改变。
+规则在 `dsers_product_import` 时应用并冻结到任务中。用 `dsers_product_update_rules` 可以在导入后增量编辑规则 — 定价/图片/变体覆盖按族替换，内容字段逐个合并。推送时不会再改变。
 
 - **pricing**：`mode`（provider_default / multiplier / fixed_markup）、`multiplier`、`fixed_markup`、`round_digits`
 - **content**：`title_prefix`、`title_suffix`、`title_override`、`description_override_html`、`description_append_html`、`tags_add`
@@ -139,8 +140,18 @@ Session 有效期约 **6 小时**，过期后工具会返回错误提示。
 - 最低售价 < $1 → 异常低价
 
 **被拦截时：** 把错误中的具体数字展示给用户（如："变体 Green 成本 $27.18，定价只有 $12.00，每件亏 $15.18"）。然后：
-1. 用 `dsers_product_import` 传入同一个 `job_id` + 更新后的 `rules_json` 重新应用规则（不需要 `source_url`），或
+1. 用 `dsers_product_update_rules` 传入 `job_id` + 更新后的定价规则（增量合并，不需要重新导入），或
 2. 如果用户明确确认接受风险，使用 `force_push=true` 重试
+
+### 定价规则冲突检测
+
+DSers 店铺可能启用了自己的**定价规则**（基础/标准/高级）。查看 `dsers_store_discover` 返回的 `pricing_rule` 字段。
+
+如果店铺定价规则已启用，同时你又通过 MCP 设置了定价规则，推送会被**直接拦截**而不是仅警告。拦截信息包含两个 `fix_options`：
+1. 在推送选项中设置 `pricing_rule_behavior='apply_store_pricing_rule'` 接受店铺端定价
+2. 在 DSers 店铺设置中关闭定价规则，使用 MCP 定价
+
+如果定价规则 API 不可达，推送会附带警告继续执行而非拦截。
 
 **禁止静默设置 `force_push=true`。** 必须先向用户解释风险。
 
@@ -174,6 +185,13 @@ Session 有效期约 **6 小时**，过期后工具会返回错误提示。
 - `stock_total`：所有变体的总库存（无数据时为 null）
 - `stock_low_warning`：布尔值 — 库存 > 0 但 < 5 时为 true
 - `warnings`：提示信息数组 — 一定要展示给用户
+
+### dsers_product_update_rules
+
+- 返回与 `dsers_product_import` / `dsers_product_preview` 相同的预览结构
+- 定价/图片/变体覆盖按族替换；内容字段逐个合并（如设置 `description` 时会保留 `title_prefix`）
+- `option_edits` 始终完全替换
+- 用 `''` 或 `null` 清除内容字段
 
 ### dsers_store_push
 

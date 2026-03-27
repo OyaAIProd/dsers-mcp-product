@@ -197,18 +197,19 @@ dsers-mcp-product/
 └── .env.example
 ```
 
-### Eight Tools
+### Nine Tools
 
 | # | Tool | What it does |
 |---|------|-------------|
-| 1 | `dsers_store_discover` | See your connected stores, available shipping methods, and what rules you can apply |
+| 1 | `dsers_store_discover` | See your connected stores, available shipping methods, pricing rules, and what rules you can apply |
 | 2 | `dsers_rules_validate` | Test your pricing or title rules before applying — catches mistakes early |
 | 3 | `dsers_product_import` | Paste a product URL, optionally apply pricing/title rules, and get a preview before pushing |
 | 4 | `dsers_product_preview` | Review a product you already imported — title, price, variants, stock at a glance |
-| 5 | `dsers_product_visibility` | Set whether the product shows up in your store or stays as a hidden draft |
-| 6 | `dsers_store_push` | Send products to your Shopify or Wix store — one at a time, in bulk, or to all stores at once |
-| 7 | `dsers_job_status` | Check if a push finished and whether it succeeded |
-| 8 | `dsers_product_delete` | Delete a product from the DSers import list (irreversible, requires confirmation) |
+| 5 | `dsers_product_update_rules` | Edit pricing, content, images, or variant rules on an already-imported product (incremental merge — no re-import needed) |
+| 6 | `dsers_product_visibility` | Set whether the product shows up in your store or stays as a hidden draft |
+| 7 | `dsers_store_push` | Send products to your Shopify or Wix store — one at a time, in bulk, or to all stores at once |
+| 8 | `dsers_job_status` | Check if a push finished and whether it succeeded |
+| 9 | `dsers_product_delete` | Delete a product from the DSers import list (irreversible, requires confirmation) |
 
 All tools return clear error messages so your AI agent knows what went wrong and what to do next — no cryptic error codes.
 
@@ -220,6 +221,13 @@ Before pushing a product to your store, the tool automatically checks for common
 - **Warnings** (push goes through, but you'll see a heads-up): profit margin below 10%, stock under 5 units, sell price under $1
 
 If something looks wrong, your AI agent will tell you exactly which variant has the problem and why. If you're sure it's fine, you can override with `force_push`.
+
+### Pricing Rule Conflict Detection
+
+If your DSers store has its own **Pricing Rule** enabled (basic/standard/advanced), and you also set pricing rules through MCP, the push will be **blocked** — not just warned. The agent will show two fix options:
+
+1. Set `pricing_rule_behavior='apply_store_pricing_rule'` in push options to accept the store's pricing rule
+2. Disable the Pricing Rule in your DSers store settings to use MCP pricing instead
 
 ### Four Prompts
 
@@ -418,18 +426,19 @@ npx tsc --noEmit
 npx @smithery/cli dev ./src/index.ts
 ```
 
-### 八个工具
+### 九个工具
 
 | # | 工具 | 干什么的 |
 |---|------|---------|
-| 1 | `dsers_store_discover` | 查看你绑定了哪些店铺、有哪些配送方式、能用什么规则 |
+| 1 | `dsers_store_discover` | 查看你绑定了哪些店铺、有哪些配送方式、定价规则、能用什么规则 |
 | 2 | `dsers_rules_validate` | 先试试定价或标题规则对不对，不会真改东西 |
 | 3 | `dsers_product_import` | 贴个商品链接，可以顺便加定价/标题规则，推送前先给你看预览 |
 | 4 | `dsers_product_preview` | 看一下已经导入的商品 — 标题、价格、变体、库存一目了然 |
-| 5 | `dsers_product_visibility` | 设置商品在店铺里是上架展示还是隐藏草稿 |
-| 6 | `dsers_store_push` | 把商品推到你的 Shopify 或 Wix 店铺 — 单个推、批量推、或一次推到所有店铺 |
-| 7 | `dsers_job_status` | 看看推送完了没、成功了没 |
-| 8 | `dsers_product_delete` | 从 DSers 导入列表中删除商品（不可恢复，需确认） |
+| 5 | `dsers_product_update_rules` | 对已导入的商品修改定价、标题、图片或变体规则（增量合并，不需要重新导入） |
+| 6 | `dsers_product_visibility` | 设置商品在店铺里是上架展示还是隐藏草稿 |
+| 7 | `dsers_store_push` | 把商品推到你的 Shopify 或 Wix 店铺 — 单个推、批量推、或一次推到所有店铺 |
+| 8 | `dsers_job_status` | 看看推送完了没、成功了没 |
+| 9 | `dsers_product_delete` | 从 DSers 导入列表中删除商品（不可恢复，需确认） |
 
 报错时会返回清晰的消息，AI 助手能看懂出了什么问题、该怎么办 — 不会给你一串看不懂的错误码。
 
@@ -441,6 +450,13 @@ npx @smithery/cli dev ./src/index.ts
 - **警告提醒**（能推，但会提示你）：利润率低于 10%、库存少于 5 件、售价低于 1 美金
 
 有问题的话，AI 助手会告诉你具体是哪个变体出了什么问题。确定没问题的话可以用 `force_push` 强制推送。
+
+### 定价规则冲突检测
+
+如果你的 DSers 店铺自己启用了**定价规则**（基础/标准/高级），同时你又通过 MCP 设置了定价规则，推送会被**直接拦截**而不是仅警告。AI 助手会给出两个解决方案：
+
+1. 在推送选项中设置 `pricing_rule_behavior='apply_store_pricing_rule'` 接受店铺端的定价规则
+2. 在 DSers 店铺设置中关闭定价规则，使用 MCP 的定价
 
 ### 四个预设提示
 

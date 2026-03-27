@@ -66,14 +66,15 @@ Use this logic every time you encounter an auth-related issue:
 
 Always follow this order:
 
-1. `dsers_store_discover` — discover stores, shipping profiles, supported rules
+1. `dsers_store_discover` — discover stores, shipping profiles, pricing rules, supported rules
 2. `dsers_rules_validate` — (optional) dry-run rule validation before importing
 3. `dsers_product_import` — import from URL(s), apply rules, get preview with job_id
 4. `dsers_product_preview` — (optional) reload a saved preview
-5. `dsers_product_visibility` — (optional) toggle `backend_only` / `sell_immediately`
-6. `dsers_store_push` — push to store(s)
-7. `dsers_job_status` — verify push result
-8. `dsers_product_delete` — delete a product from the import list (irreversible, requires `confirm: true`)
+5. `dsers_product_update_rules` — (optional) incrementally edit pricing, content, images, or variant rules on an imported product
+6. `dsers_product_visibility` — (optional) toggle `backend_only` / `sell_immediately`
+7. `dsers_store_push` — push to store(s)
+8. `dsers_job_status` — verify push result
+9. `dsers_product_delete` — delete a product from the import list (irreversible, requires `confirm: true`)
 
 Step 1 is required before any import — it returns the store list, available shipping profiles, and rule constraints.
 
@@ -119,7 +120,7 @@ Non-Shopify stores skip shipping profile entirely.
 
 ### Rules
 
-Rules are applied at `dsers_product_import` time and frozen into the job. They do NOT change at push time.
+Rules are applied at `dsers_product_import` time and frozen into the job. Use `dsers_product_update_rules` to incrementally edit rules after import — pricing/images/variant_overrides replace by family, content fields merge individually. Rules do NOT change at push time.
 
 - **pricing**: `mode` (provider_default, multiplier, fixed_markup), `multiplier`, `fixed_markup`, `round_digits`
 - **content**: `title_prefix`, `title_suffix`, `title_override`, `description_override_html`, `description_append_html`, `tags_add`
@@ -148,8 +149,18 @@ Use `dsers_rules_validate` to check rules before importing — it returns `effec
 - Min sell price < $1 → suspiciously low
 
 **When blocked:** Show the user the EXACT figures from the error (e.g., "Variant Green costs $27.18 but is priced at $12.00 — a $15.18 loss per unit"). Then either:
-1. Fix pricing by calling `dsers_product_import` with the same `job_id` + updated `rules_json` (re-apply mode, no `source_url` needed), or
+1. Fix pricing by calling `dsers_product_update_rules` with the `job_id` + updated pricing rules (incremental merge, no re-import needed), or
 2. If the user explicitly confirms they accept the risk, retry with `force_push=true`
+
+### Pricing Rule Conflict Detection
+
+DSers stores may have their own **Pricing Rule** enabled (basic/standard/advanced). Check the `pricing_rule` field in `dsers_store_discover` response.
+
+If a store Pricing Rule is enabled AND you set MCP pricing rules, push will be **BLOCKED** — not warned. The block returns two `fix_options`:
+1. Set `pricing_rule_behavior='apply_store_pricing_rule'` in push options to accept the store's pricing
+2. Disable the DSers Pricing Rule in store settings to use MCP pricing
+
+If the pricing rule API is unreachable, push proceeds with a warning instead of blocking.
 
 **NEVER set `force_push=true` silently.** Always explain the risk first.
 
@@ -192,6 +203,13 @@ Map user intent to `push_options` (passed as `push_options_json` — a JSON stri
 - `total_variants`: shown only when variant count exceeds 5
 - `requested_rules` / `effective_rules_snapshot`: rules as requested vs actually applied
 - `warnings`: array of messages — always surface these to the user
+
+### dsers_product_update_rules
+
+- Returns the same preview structure as `dsers_product_import` / `dsers_product_preview`
+- Pricing/images/variant_overrides replace by family; content fields merge individually (e.g. setting `description` preserves `title_prefix`)
+- `option_edits` always fully replaced
+- Clear a content field with `''` or `null`
 
 ### dsers_store_push
 
