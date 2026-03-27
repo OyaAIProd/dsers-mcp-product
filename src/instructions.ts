@@ -16,9 +16,12 @@ export const SERVER_INSTRUCTIONS = [
     "Pricing/images/variant_overrides replace by family. Content fields merge individually (title_prefix preserved when setting description). " +
     "option_edits always fully replaced. Clear a content field with '' or null.",
   "",
-  "PRICING CONFLICT: DSers stores may have their own Pricing Rule enabled in Settings. If active, it overrides MCP pricing rules during push. " +
-    "Check the pricing_rule field in dsers_store_discover response. If the store has a pricing rule enabled and you also set MCP pricing, " +
-    "warn the user: they must either disable the DSers Pricing Rule or set push_options pricing_rule_behavior='apply_store_pricing_rule'.",
+  "PRICING CONFLICT: DSers stores may have their own Pricing Rule enabled (basic/standard/advanced). " +
+    "Check the pricing_rule field in dsers_store_discover. If enabled AND you set MCP pricing rules, " +
+    "push will be BLOCKED — not warned. The block returns two fix_options: " +
+    "(1) set pricing_rule_behavior='apply_store_pricing_rule' to accept DSers pricing, " +
+    "(2) disable the DSers Pricing Rule in store settings to use MCP pricing. " +
+    "If the pricing rule API is unreachable, push proceeds with a warning instead of blocking.",
   "",
   "SAFETY: Push operations auto-check pricing and stock before sending to the store. Hard blocks (sell price < cost, zero price, all variants out of stock) prevent the push. Show the user the exact issue. Only use force_push=true after the user explicitly confirms they accept the risk.",
   "",
