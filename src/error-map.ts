@@ -91,6 +91,18 @@ const DSERS_REASON_MAP: Record<string, AgentError> = {
 
 const MESSAGE_PATTERNS: [RegExp, AgentError][] = [
   [
+    /Cannot push to store.*do not support product push/i,
+    {
+      summary: "Store does not support product push",
+      cause:
+        "CSV and other non-ecommerce stores cannot receive product pushes. " +
+        "Only Shopify, Wix, and WooCommerce stores support push.",
+      action:
+        "Use dsers_store_discover to find a pushable store (one with platform: shopify/wix/woocommerce), " +
+        "then retry with that store as target_store.",
+    },
+  ],
+  [
     /credentials not configured/i,
     {
       summary: "DSers credentials not configured",

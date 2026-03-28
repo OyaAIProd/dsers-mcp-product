@@ -23,6 +23,10 @@ export const SERVER_INSTRUCTIONS = [
     "(2) disable the DSers Pricing Rule in store settings to use MCP pricing. " +
     "If the pricing rule API is unreachable, push proceeds with a warning instead of blocking.",
   "",
+  "CSV STORES: Stores without a platform (e.g. CSV) do NOT support product push. " +
+    "Only Shopify, Wix, and WooCommerce stores can receive pushes. " +
+    "Check the push_supported field in dsers_store_discover — if false, do not attempt to push to that store.",
+  "",
   "SAFETY: Push operations auto-check pricing and stock before sending to the store. Hard blocks (sell price < cost, zero price, all variants out of stock) prevent the push. Show the user the exact issue. Only use force_push=true after the user explicitly confirms they accept the risk.",
   "",
   "ERRORS: All errors return {Error, Cause, Action}. Follow the Action field.",

@@ -219,9 +219,12 @@ export class ImportFlowService {
     const rawStores = caps.stores ?? [];
     const pricingRuleResults = await this.fetchStorePricingRulesWithTimeout(rawStores);
 
+    const PUSHABLE = new Set(["shopify", "wix", "woocommerce"]);
     const stores = rawStores.map((s: any, i: number) => {
       const slim: Record<string, any> = { id: s.store_ref, name: s.display_name };
       if (s.platform) slim.platform = s.platform;
+      if (!s.platform || !PUSHABLE.has(String(s.platform).toLowerCase()))
+        slim.push_supported = false;
       if (s.shipping_profiles?.length) {
         slim.ship = s.shipping_profiles.map((p: any) =>
           p.is_default ? `${p.name} *` : p.name,

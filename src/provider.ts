@@ -34,6 +34,8 @@ const DEFAULT_PUSH_CHANNELS = [
   "amazon",
 ];
 
+const PUSHABLE_PLATFORMS = new Set(["shopify", "wix", "woocommerce"]);
+
 const ALIEXPRESS_ID_PATTERN = /\/(?:item|i)\/(\d+)\.html/i;
 const ALIBABA_ID_PATTERN = /\/product-detail\/[^_]*_(\d+)\.html/i;
 const ALI1688_ID_PATTERN = /1688\.com\/(?:offer|product-detail)\/(\d+)\.html/i;
@@ -1148,23 +1150,41 @@ export class PrivateDsersProvider implements ImportProvider {
       throw new Error(
         "No linked stores found. Connect a Shopify store in DSers before pushing products.",
       );
-    const storeNames = stores
+    const pushable = stores.filter(
+      (s) => s.platform && PUSHABLE_PLATFORMS.has(String(s.platform).toLowerCase()),
+    );
+    const pushableNames = pushable
       .map((s) => `${s.display_name} (${s.store_ref})`)
       .join(", ");
     if (!targetStore) {
-      if (stores.length === 1) return stores[0];
+      if (pushable.length === 1) return pushable[0];
+      if (!pushable.length)
+        throw new Error(
+          "No pushable stores found. CSV stores do not support product push. " +
+          "Connect a Shopify or Wix store in DSers before pushing products.",
+        );
       throw new Error(
-        `Multiple stores are available: ${storeNames}. Provide target_store with the store_ref or display_name from dsers_store_discover.`,
+        `Multiple pushable stores available: ${pushableNames}. Provide target_store with the store_ref or display_name from dsers_store_discover.`,
       );
     }
     const target = targetStore.trim().toLowerCase();
     for (const store of stores) {
-      if (store.store_ref.toLowerCase() === target) return store;
-      if (String(store.display_name ?? "").trim().toLowerCase() === target)
-        return store;
+      if (store.store_ref.toLowerCase() !== target &&
+          String(store.display_name ?? "").trim().toLowerCase() !== target)
+        continue;
+      if (!store.platform || !PUSHABLE_PLATFORMS.has(String(store.platform).toLowerCase())) {
+        throw new Error(
+          `Cannot push to store '${store.display_name}' — ` +
+          `${store.platform ? `platform '${store.platform}'` : "CSV/unknown platform stores"} ` +
+          `do not support product push. ` +
+          `Push is only supported for: ${[...PUSHABLE_PLATFORMS].join(", ")}. ` +
+          `Available pushable stores: ${pushableNames || "none"}.`,
+        );
+      }
+      return store;
     }
     throw new Error(
-      `Unknown target_store '${targetStore}'. Available stores: ${storeNames}. Use the store_ref or display_name from dsers_store_discover.`,
+      `Unknown target_store '${targetStore}'. Available pushable stores: ${pushableNames || "none"}. Use the store_ref or display_name from dsers_store_discover.`,
     );
   }
 

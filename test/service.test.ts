@@ -583,6 +583,27 @@ describe("ImportFlowService", () => {
       expect(caps.version).toMatch(/^\d+\.\d+\.\d+/);
     });
   });
+
+  describe("CSV store push_supported flag", () => {
+    it("marks store without platform as push_supported:false", async () => {
+      const caps = await service.getRuleCapabilities({});
+      const store = caps.stores.find((s: any) => s.id === "store-1");
+      expect(store.push_supported).toBe(false);
+    });
+
+    it("does not mark Shopify store as push_supported:false", async () => {
+      (provider.getRuleCapabilities as any).mockResolvedValueOnce({
+        provider_label: "Test",
+        source_support: ["aliexpress"],
+        stores: [{ store_ref: "store-1", display_name: "Test Store", platform: "shopify" }],
+        rule_families: {},
+        push_options: {},
+      });
+      const caps = await service.getRuleCapabilities({});
+      const store = caps.stores.find((s: any) => s.id === "store-1");
+      expect(store.push_supported).toBeUndefined();
+    });
+  });
 });
 
 describe("buildRulesFromFlatParams", () => {
