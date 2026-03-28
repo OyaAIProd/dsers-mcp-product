@@ -7,12 +7,12 @@
     "url": "https://github.com/lofder/dsers-mcp-product",
     "source": "github"
   },
-  "version": "1.3.0",
+  "version": "1.3.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@lofder/dsers-mcp-product",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "transport": {
         "type": "stdio"
       },

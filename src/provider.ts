@@ -534,7 +534,6 @@ export class PrivateDsersProvider implements ImportProvider {
       )),
     );
 
-    console.error("[commitCandidate] pushArgs:", JSON.stringify(pushArgs, null, 2).slice(0, 2000));
     const cleanPushArgs = JSON.parse(JSON.stringify(pushArgs));
     const pushPayload = await safeCall(() =>
       product.pushToStore(this.client, cleanPushArgs),
