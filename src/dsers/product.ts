@@ -315,11 +315,12 @@ export async function updateImportListItem(
   const existing = await client.get(`/dsers-product-bff/import-list/${id}`);
   const product =
     existing?.data != null ? existing.data : existing;
-  const data =
+  const merged =
     product !== null && typeof product === "object" && !Array.isArray(product)
       ? { ...(product as Record<string, unknown>), ...updates }
       : updates;
-  return client.put(`/dsers-product-bff/import-list/${id}`, data as Record<string, unknown>);
+  const data = cleanNone(merged) as Record<string, unknown>;
+  return client.put(`/dsers-product-bff/import-list/${id}`, data);
 }
 
 export async function deleteImportList(

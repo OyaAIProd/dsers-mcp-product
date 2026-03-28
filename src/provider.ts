@@ -452,11 +452,12 @@ export class PrivateDsersProvider implements ImportProvider {
       }
     }
 
+    const cleanUpdateArgs = JSON.parse(JSON.stringify(updateArgs));
     const updatePayload = await safeCall(() =>
       product.updateImportListItem(
         this.client,
         providerState.import_item_id,
-        updateArgs,
+        cleanUpdateArgs,
       ),
     );
 
@@ -531,8 +532,10 @@ export class PrivateDsersProvider implements ImportProvider {
       )),
     );
 
+    console.error("[commitCandidate] pushArgs:", JSON.stringify(pushArgs, null, 2).slice(0, 2000));
+    const cleanPushArgs = JSON.parse(JSON.stringify(pushArgs));
     const pushPayload = await safeCall(() =>
-      product.pushToStore(this.client, pushArgs),
+      product.pushToStore(this.client, cleanPushArgs),
     );
     this.raiseIfError(
       pushPayload,
