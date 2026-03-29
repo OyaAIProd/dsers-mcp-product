@@ -1,6 +1,6 @@
 {
   "name": "@lofder/dsers-mcp-product",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "type": "module",
   "mcpName": "io.github.lofder/dsers-mcp-product",
   "description": "MCP server to automate DSers product import from AliExpress/Alibaba/Accio to Shopify & Wix",

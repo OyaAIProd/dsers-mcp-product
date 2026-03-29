@@ -1132,7 +1132,8 @@ export class PrivateDsersProvider implements ImportProvider {
   private async resolveStore(
     targetStore: string | null,
   ): Promise<Record<string, any>> {
-    const stores = await this.listStores();
+    let stores = await this.listStores();
+    stores = await this.enrichShopifyProfiles(stores);
     if (!stores.length)
       throw new Error(
         "No linked stores found. Connect a Shopify store in DSers before pushing products.",

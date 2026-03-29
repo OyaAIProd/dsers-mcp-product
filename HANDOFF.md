@@ -5,7 +5,7 @@
 **名称**: `@lofder/dsers-mcp-product`
 **仓库**: https://github.com/lofder/dsers-mcp-product
 **npm**: https://www.npmjs.com/package/@lofder/dsers-mcp-product
-**当前版本**: 1.3.2
+**当前版本**: 1.3.3
 **工作区**: `/Users/zhaoyuhang/Desktop/project0130/dsers-mcp-product`
 
 ## 这是什么
@@ -96,10 +96,11 @@ app/                    # Vercel 部署用（仅 git，不进 npm 包）
 
 ## 版本历史
 
-### v1.3.2 — Push 加固 + 自定义域名店铺修复
+### v1.3.3 — Push 加固 + 自定义域名店铺修复
 - `coerceNumericId` nullish 输入返回空字符串，防止 undefined 泄入 push payload
 - `buildPushArguments` 入口校验 importItemId/storeRef 非空
 - `enrichShopifyProfiles` 去掉 hasShopify 前置检查，有 shipping profile 则补 platform=shopify（修复自定义域名 Shopify 店铺被误判为不可推送）
+- `resolveStore` push 路径也走 enrichShopifyProfiles，与 discover 路径一致
 - 清理 saveDraft 调试日志
 
 ### v1.3.1 — CSV Store Block + Push Payload 清洗
