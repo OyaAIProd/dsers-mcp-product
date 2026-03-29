@@ -5,7 +5,7 @@
 **名称**: `@lofder/dsers-mcp-product`
 **仓库**: https://github.com/lofder/dsers-mcp-product
 **npm**: https://www.npmjs.com/package/@lofder/dsers-mcp-product
-**当前版本**: 1.3.0
+**当前版本**: 1.3.2
 **工作区**: `/Users/zhaoyuhang/Desktop/project0130/dsers-mcp-product`
 
 ## 这是什么
@@ -35,7 +35,7 @@ src/
 ├── job-store.ts        # Job 存储接口
 └── job-store-memory.ts # 内存 + token 编码实现
 
-test/                   # Vitest 单元测试（193 个，全部通过）
+test/                   # Vitest 单元测试（195 个，全部通过）
 app/                    # Vercel 部署用（仅 git，不进 npm 包）
 ```
 
@@ -96,6 +96,16 @@ app/                    # Vercel 部署用（仅 git，不进 npm 包）
 
 ## 版本历史
 
+### v1.3.2 — Push 加固 + 自定义域名店铺修复
+- `coerceNumericId` nullish 输入返回空字符串，防止 undefined 泄入 push payload
+- `buildPushArguments` 入口校验 importItemId/storeRef 非空
+- `enrichShopifyProfiles` 去掉 hasShopify 前置检查，有 shipping profile 则补 platform=shopify（修复自定义域名 Shopify 店铺被误判为不可推送）
+- 清理 saveDraft 调试日志
+
+### v1.3.1 — CSV Store Block + Push Payload 清洗
+- Block push to CSV/non-ecommerce stores（防止后端死锁）
+- `JSON.parse(JSON.stringify(pushArgs))` 防 undefined 值泄入 push 请求
+
 ### v1.3.0 — Pricing Rule 全链路 + Token 热加载
 基于 R3/R4/R5 三轮测试报告修复：
 - **P0**: Pricing rule 冲突检测 — discover 返回 pricing_rule 状态，push 时冲突 block（结构化错误 + fix_options）
@@ -117,15 +127,15 @@ app/                    # Vercel 部署用（仅 git，不进 npm 包）
 1. **Alibaba 成功率低**: 错误信息已改善但根因是 DSers API 侧限制（仅支持目标国本土仓）
 2. **compare_at_price 反转**: pricing rules 提高 sell_price 后 compare_at 可能低于 sell（有 warning，但不自动修复）
 3. **dsers_login MCP tool**: 当前登录需终端执行 CLI 命令，无 Bash 权限的纯 MCP 环境体验较差（P3）
-4. **测试覆盖**: 193 个单元测试，但无自动化 E2E
+4. **测试覆盖**: 195 个单元测试，但无自动化 E2E
 
-## 数据快照 (2026-03-28)
+## 数据快照 (2026-03-29)
 
 | 指标 | 数值 |
 |------|------|
 | 代码行数 | src/ ~14,000 + test/ ~2,000 |
-| 单元测试 | 193 |
-| 总 commit | 74+ |
+| 单元测试 | 195 |
+| 总 commit | 76+ |
 
 ## 构建 & 测试
 

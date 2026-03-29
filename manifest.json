@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "dsers-mcp-product",
   "display_name": "DSers — Dropshipping Product Import",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Automate DSers product import from AliExpress/Alibaba/Accio to Shopify & Wix using AI",
   "long_description": "An MCP server that lets AI agents automate the entire DSers dropshipping workflow. Paste a product link from AliExpress, Alibaba, or Accio.com — your AI agent imports it, applies pricing rules, cleans up the title, and pushes it to your Shopify or Wix store. Supports bulk import, multi-store push, SEO optimization, and pre-push safety checks.",
   "author": {
