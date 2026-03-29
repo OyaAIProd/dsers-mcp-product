@@ -15,6 +15,8 @@
 
 ## English
 
+> **⚠️ Rapid iteration phase:** Development is currently limited to a single DSers account, making it difficult to cover every edge case. Issues are being discovered and fixed one by one through extensive scenario testing — which sometimes introduces new ones. Expect frequent releases during this period. Please always use the latest version, and [help us test](https://github.com/lofder/dsers-mcp-product/issues) if you can!
+
 **DSers MCP Product** is an open-source [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that lets AI Agents automate the entire DSers import workflow — from AliExpress / Alibaba / [Accio.com](https://www.accio.com/) product URL to Shopify or Wix store listing. Bulk import, batch edit variants, clean AliExpress titles, apply pricing rules, and push to multiple stores — all with a single sentence to your AI agent.
 
 #### What can it do?
@@ -269,6 +271,8 @@ MIT
 <a id="中文"></a>
 
 ## 中文
+
+> **⚠️ 快速迭代阶段：** 目前开发只有一个 DSers 账号，很难囊括所有场景。我们在尽可能测试各种情况下可能出现的问题，发现一个修复一个，修复过程中也可能连带引出其他问题，因此近期更新迭代速度会非常快。请时刻关注最新版本，也欢迎大家来[帮助测试](https://github.com/lofder/dsers-mcp-product/issues)！
 
 **DSers MCP Product** 是一个开源的 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) 服务器，让 AI Agent 自动完成 DSers 的整个商品导入流程 —— 从速卖通 / Alibaba / [Accio.com](https://www.accio.com/) 商品链接到 Shopify 或 Wix 店铺上架。批量导入、批量编辑变体、清理速卖通标题、应用定价规则、推送到多个店铺 —— 只需一句话给你的 AI agent。
 
