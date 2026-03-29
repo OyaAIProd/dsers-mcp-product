@@ -463,8 +463,6 @@ export class PrivateDsersProvider implements ImportProvider {
       ),
     );
 
-    console.error("[saveDraft] PUT response:", JSON.stringify(updatePayload ?? {}).slice(0, 500));
-
     this.raiseIfError(
       updatePayload,
       "Could not save the updated product draft. The import list item may have been modified or deleted.",
@@ -476,18 +474,11 @@ export class PrivateDsersProvider implements ImportProvider {
       const savedTitle = vData?.[fieldMap.title_key ?? "title"];
       const savedMin = vData?.[fieldMap.min_price_key];
       const savedMax = vData?.[fieldMap.max_price_key];
-      console.error("[saveDraft] VERIFY title:", savedTitle?.slice?.(0, 60));
-      console.error("[saveDraft] VERIFY minPrice:", savedMin, "maxPrice:", savedMax);
       const firstVariant = (vData?.[fieldMap.variants_key] ?? [])[0];
-      if (firstVariant) {
-        console.error("[saveDraft] VERIFY variant[0] sellPrice:", firstPresent(firstVariant, ["sellPrice", "salePrice", "price"]),
-          "supplierPrice:", firstPresent(firstVariant, ["supplierPrice", "buyPrice", "cost"]));
-      }
       if (savedTitle !== draft.title) {
         warnings.push(`Title may not have persisted: expected "${draft.title.slice(0, 40)}...", got "${String(savedTitle).slice(0, 40)}..."`);
       }
     } catch (verifyErr: any) {
-      console.error("[saveDraft] VERIFY failed:", verifyErr.message);
     }
 
     return { warnings };
@@ -620,6 +611,10 @@ export class PrivateDsersProvider implements ImportProvider {
     visibilityMode: string,
     pushOptions: Record<string, any>,
   ): Record<string, any> {
+    if (!importItemId || !String(importItemId).trim())
+      throw new Error("buildPushArguments: importItemId is empty. The product may not have been imported correctly.");
+    if (!storeRef || !String(storeRef).trim())
+      throw new Error("buildPushArguments: storeRef is empty. No target store was resolved.");
     const importListId = coerceNumericId(importItemId);
     const storeId = coerceNumericId(storeRef);
     const visible = Boolean(pushOptions.publish_to_online_store);
@@ -1110,22 +1105,15 @@ export class PrivateDsersProvider implements ImportProvider {
   private async enrichShopifyProfiles(
     stores: Record<string, any>[],
   ): Promise<Record<string, any>[]> {
-    const hasShopify = stores.some(
-      (s) =>
-        (s.domain ?? "").includes(".myshopify.com") ||
-        String(s.platform ?? "").toLowerCase() === "shopify",
-    );
-    if (!hasShopify) return stores;
+    if (!stores.length) return stores;
 
     const profilesByStore = await this.fetchShopifyProfiles();
     if (!Object.keys(profilesByStore).length) return stores;
 
     return stores.map((s) => {
-      const isShopify =
-        (s.domain ?? "").includes(".myshopify.com") ||
-        String(s.platform ?? "").toLowerCase() === "shopify";
-      if (!isShopify) return s;
       const rawProfiles = profilesByStore[s.store_ref] ?? [];
+      if (!rawProfiles.length) return s;
+      if (!s.platform) s.platform = "shopify";
       const readable = rawProfiles.map((p: any) => {
         const groups = p.profileGroups ?? [];
         const firstGroup = groups[0] ?? {};
@@ -1816,8 +1804,9 @@ export class PrivateDsersProvider implements ImportProvider {
 // ── Standalone utility functions ──
 
 function coerceNumericId(value: any): any {
-  const text = String(value ?? "").trim();
-  if (!/^-?\d+$/.test(text)) return value;
+  if (value == null) return "";
+  const text = String(value).trim();
+  if (!text || !/^-?\d+$/.test(text)) return value;
   const num = Number(text);
   return Number.isSafeInteger(num) ? num : text;
 }
